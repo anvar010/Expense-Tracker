@@ -19,12 +19,12 @@ function DockLink({ item, active, pillId, compact }: { item: DockItem; active: b
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium text-muted transition-colors hover:text-foreground aria-[current=page]:text-foreground",
-        compact ? "min-w-0 flex-1 px-1" : "min-w-[5rem] px-2.5",
+        compact ? "min-w-0 flex-1 px-1" : "min-w-[4.5rem] px-1.5 lg:min-w-[6rem] lg:gap-1.5 lg:px-3 lg:py-3 lg:text-xs xl:min-w-[7.25rem]",
       )}
     >
       {active && <motion.span layoutId={pillId} transition={PILL} className="absolute inset-0 rounded-2xl bg-surface-2" />}
       <motion.span whileHover={{ y: -2 }} whileTap={{ scale: 0.9 }} transition={PILL} className="relative">
-        <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+        <Icon strokeWidth={active ? 2.2 : 1.8} className={compact ? "size-5" : "size-5 lg:size-6"} />
       </motion.span>
       <span className="relative">{item.label}</span>
     </Link>
@@ -58,14 +58,14 @@ export function Dock({ primary, more, onAdd }: { primary: DockItem[]; more: Dock
       <nav aria-label="Main" className="fixed inset-x-0 bottom-5 z-30 hidden justify-center px-4 md:flex">
         <motion.div
           initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 26, delay: 0.1 }}
-          className="glass flex items-center gap-1 rounded-3xl p-1.5"
+          className="glass flex items-center gap-1 rounded-3xl p-1.5 lg:gap-2 lg:p-2"
         >
           {left.map((i) => <DockLink key={i.href} item={i} active={isActive(i.href)} pillId="pill-desktop" />)}
           <motion.button
             type="button" aria-label="Add transaction" onClick={onAdd} whileHover={{ y: -2 }} whileTap={{ scale: 0.94 }} transition={PILL}
-            className="mx-1 flex min-w-[5rem] flex-col items-center gap-1 rounded-2xl bg-accent px-3 py-2 text-[11px] font-semibold text-emerald-950 shadow-[0_8px_24px_-8px_rgb(16_185_129/0.7)]"
+            className="mx-1 flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl bg-accent px-1.5 py-2 text-[11px] font-semibold lg:mx-2 lg:min-w-[6.5rem] lg:gap-1.5 lg:px-4 lg:py-3 lg:text-xs xl:min-w-[7.5rem] text-emerald-950 shadow-[0_8px_24px_-8px_rgb(16_185_129/0.7)]"
           >
-            <Plus size={20} strokeWidth={2.4} /> Add
+            <Plus strokeWidth={2.4} className="size-5 lg:size-6" /> Add
           </motion.button>
           {right.map((i) => <DockLink key={i.href} item={i} active={isActive(i.href)} pillId="pill-desktop" />)}
         </motion.div>
