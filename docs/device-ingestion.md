@@ -36,7 +36,14 @@ Other iPhone options: paste or share a message into **Messages** in the web app,
 ## Android
 Source: `android-companion/` (Kotlin, Compose, WorkManager). It requests **`RECEIVE_SMS` only**, never `READ_SMS`, so it sees messages as they arrive and cannot read history. Each message is filtered on the phone (must look like a transaction, must not contain OTP/security words) before it is queued; the queue retries with backoff and is wiped on **Disconnect**. Consent screen, pause switch and sync status are in the app.
 
-**Not yet built or run:** this project has not been compiled in Android Studio. Open it, let Gradle sync, run `FinancialFilterTest`, then test on a device.
+**Build status:** the app compiles (AGP 9.2.1, Kotlin 2.2.10, Gradle 9.4.1) and `FinancialFilterTest` passes. It has not yet been run on a physical phone. To build the APK from a terminal:
+
+```bash
+cd android-companion
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ANDROID_HOME="$HOME/Library/Android/sdk"
+gradle assembleDebug     # output: app/build/outputs/apk/debug/app-debug.apk
+```
+Or open the folder in Android Studio and press Run. The app only sends to `https://` addresses, so a phone needs an HTTPS URL for the server (a deployed site or a tunnel).
 
 ### Google Play eligibility (important)
 Google restricts SMS permissions for apps published on Google Play, and automatic bank-SMS parsing for an expense tracker may not qualify for an exception. **Check the current Play Console policy and permission declaration form before planning a Play release.** Do not assume approval. Alternatives:

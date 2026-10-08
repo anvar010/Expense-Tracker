@@ -42,8 +42,8 @@ Optional AI (server-side only): set `ANTHROPIC_API_KEY`. `AI_CATEGORIZATION=true
 - The service worker never caches `/api/*`.
 
 ## Known limits and not yet verified
-- **MySQL paths have not been run.** This machine had no MySQL, so registration/login, Prisma queries, the ingestion pipeline's database steps and sync have only been type-checked and exercised up to the "database unavailable" responses. Run `npm run db:migrate` and test sign-in before relying on them.
-- **Android app is unbuilt**: open `android-companion/` in Android Studio. Google Play may not allow SMS permissions for this use; see `docs/device-ingestion.md`.
+- **MySQL:** the migration and the API (register, login, accounts, devices, ingestion, review queue, revoke, per-user isolation) were exercised against a real local MySQL 9 install. The browser UI has only been tested in guest/no-database mode, and the offline-sync queue against a live database has not been exercised.
+- **Android app** compiles and its filter tests pass, but has not been run on a physical phone. Google Play may not allow SMS permissions for this use; see `docs/device-ingestion.md`.
 - **Bank templates** (`src/lib/parser/templates.ts`) are representative, not verified against real bank SMS. Generic parsing handles the rest, and uncertain messages go to review.
 - **PDF statements** are best-effort and inferred from running balances; XLSX/PDF reading is covered by unit tests of the logic, not by a browser test.
 - **Not built:** push notifications (only local/browser notifications), budget rollover, Excel export, email-alert import, bulk categorise, multi-currency conversion, server-side aggregation (the dashboard computes in the browser), password reset, profile/settings page, data export and account deletion.
