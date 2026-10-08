@@ -20,6 +20,9 @@ class Settings(context: Context) {
     var paused: Boolean get() = prefs.getBoolean("paused", false); set(v) = prefs.edit().putBoolean("paused", v).apply()
     var consented: Boolean get() = prefs.getBoolean("consented", false); set(v) = prefs.edit().putBoolean("consented", v).apply()
     var lastSync: Long get() = prefs.getLong("lastSync", 0); set(v) = prefs.edit().putLong("lastSync", v).apply()
+    /** Plain-language result of the last sync or send, shown on the main screen. */
+    var status: String get() = prefs.getString("status", "") ?: ""; set(v) = prefs.edit().putString("status", v).apply()
+    var sentTotal: Int get() = prefs.getInt("sentTotal", 0); set(v) = prefs.edit().putInt("sentTotal", v).apply()
     val connected: Boolean get() = !token.isNullOrBlank() && !serverUrl.isNullOrBlank()
 
     /** Disconnecting removes the key, the URL and everything still waiting to be sent. */
@@ -45,6 +48,14 @@ class Queue(context: Context) {
     }
 
     @Synchronized fun add(p: Pending) = save((all() + p).takeLast(500))
+
+    /** Adds only messages not already waiting; returns how many were new. */
+    @Synchronized fun addAll(items: List<Pending>): Int {
+        val have = all().map { it.messageId }.toSet()
+        val fresh = items.filter { it.messageId !in have }
+        if (fresh.isNotEmpty()) save((all() + fresh).takeLast(500))
+        return fresh.size
+    }
     @Synchronized fun remove(id: String) = save(all().filterNot { it.messageId == id })
     @Synchronized fun clear() { file.delete() }
     fun size() = all().size

@@ -89,8 +89,19 @@ export default function DevicesPage() {
             </ol>
           </details>
           <details className="text-sm text-muted">
+            <summary className="cursor-pointer text-foreground">iPhone: sync past messages with one tap</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>Shortcuts → <b>+</b> → name it "Sync bank messages".</li>
+              <li>Add <b>Find Messages</b>: Sender is your bank, Date is in the last 1 Month.</li>
+              <li>Add <b>Repeat with Each</b> over the messages.</li>
+              <li>Inside the loop add <b>Get Contents of URL</b> with the same URL, headers and body as the automation above. For <code>receivedAt</code>, use the item's Date formatted as ISO 8601.</li>
+              <li>Run it from the Shortcuts app or add it to your Home Screen. Messages already sent are recognised as duplicates, so running it again is safe.</li>
+            </ol>
+            <p className="mt-2">iOS does not allow any app to read your messages directly, so this Shortcut is the iPhone equivalent of the Android Sync button.</p>
+          </details>
+          <details className="text-sm text-muted">
             <summary className="cursor-pointer text-foreground">Android setup</summary>
-            <p className="mt-2">Install the companion app (<code>android-companion/</code>), choose “Add key”, and paste the key and URL. The app asks for SMS permission and explains why before it does.</p>
+            <p className="mt-2">Install the companion app, paste the key and URL, then tap <b>Sync this month's messages</b>. The app asks for SMS permission and explains why before it does. It reads this month's inbox once, keeps only bank transactions, and sends nothing else.</p>
           </details>
         </section>
       )}

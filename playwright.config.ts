@@ -12,5 +12,8 @@ export default defineConfig({
     url: "http://localhost:3120/login",
     timeout: 180_000,
     reuseExistingServer: false,
+    // Point at an unreachable database so these tests always cover the guest / database-down path,
+    // whatever is running on the machine.
+    env: { DATABASE_URL: "mysql://nobody:nothing@127.0.0.1:1/none" },
   },
 });
