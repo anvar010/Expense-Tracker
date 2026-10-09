@@ -11,6 +11,9 @@ const message = z.object({
   text: z.string().min(1).max(2000),
   receivedAt: z.string().datetime().optional(),
 });
+// A full month of messages can take longer than the 10 second default on serverless hosting.
+export const maxDuration = 60;
+
 const schema = z.object({ messages: z.array(message).min(1).max(100) });
 
 /**
