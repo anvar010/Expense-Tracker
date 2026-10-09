@@ -1,7 +1,9 @@
 package com.spendly.companion
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -73,9 +75,12 @@ class MainActivity : ComponentActivity() {
         var url by remember { mutableStateOf("") }
         var key by remember { mutableStateOf("") }
         var error by remember { mutableStateOf("") }
-        val receivePerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
+        // Android 13+ silently refuses SMS permission for apps installed from a file until "Allow restricted settings" is on,
+        // so a denial needs an explanation and a shortcut to the right screen, not just a status line.
+        var blocked by remember { mutableStateOf(false) }
+        val receivePerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (!granted) blocked = true; tick++ }
         val readPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) syncThisMonth(settings, queue) { tick++ } else { settings.status = "Permission to read messages was not given, so nothing was synced."; tick++ }
+            if (granted) { blocked = false; syncThisMonth(settings, queue) { tick++ } } else { blocked = true; settings.status = "Permission to read messages was not given, so nothing was synced."; tick++ }
         }
         // Keep "waiting to sync" and the status line fresh while a send is in progress.
         LaunchedEffect(Unit) { while (true) { delay(1500); tick++ } }
@@ -111,6 +116,15 @@ class MainActivity : ComponentActivity() {
                 if (has(Manifest.permission.READ_SMS)) syncThisMonth(settings, queue) { tick++ } else readPerm.launch(Manifest.permission.READ_SMS)
             }) { Text("Sync this month's messages") }
             if (settings.status.isNotEmpty()) Text(settings.status, color = MaterialTheme.colorScheme.primary)
+            if (blocked) {
+                Text("Android didn't allow SMS access", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+                Text("This is common for apps installed from a file: Android hides the permission pop-up and refuses automatically. To fix it:\n" +
+                    "1. Tap \"Open app settings\" below.\n" +
+                    "2. Tap the three dots (top right) and choose \"Allow restricted settings\". If you don't see it, skip this step.\n" +
+                    "3. Tap Permissions, then SMS, then Allow.\n" +
+                    "4. Come back here and tap Sync again.")
+                Button(onClick = { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }) { Text("Open app settings") }
+            }
 
             // 4. Live detection of new messages.
             if (!has(Manifest.permission.RECEIVE_SMS)) {
