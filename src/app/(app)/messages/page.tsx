@@ -8,6 +8,7 @@ import { normalizeMerchant } from "@/lib/parser/merchants";
 import type { CategoryRule } from "@/lib/parser/categorize";
 import { useData } from "@/lib/store/data-provider";
 import { newId } from "@/lib/store/storage";
+import { PhoneConnectCard } from "@/components/phone-connect-card";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import { CURRENCIES, DEFAULT_CATEGORIES, TX_TYPES, type Account } from "@/lib/types";
@@ -105,6 +106,8 @@ export default function MessagesPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Message analyzer</h1>
         <p className="mt-1 text-sm text-muted">Paste a bank SMS or email alert. Nothing is saved until you confirm. Messages containing OTPs are ignored.</p>
       </div>
+
+      <PhoneConnectCard />
 
       <section className="card space-y-3 p-4">
         <label className="label" htmlFor="msg">Bank message</label>

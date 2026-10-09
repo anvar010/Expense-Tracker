@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { BudgetAlerts } from "./budget-alerts";
 import { Dock, type DockItem } from "./dock";
+import { FirstRunPrompt } from "./first-run";
 import { NotificationBell } from "./notification-bell";
 import { InstallButton } from "./pwa";
 import { TxDialog } from "./tx-dialog";
@@ -86,6 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <Dock primary={PRIMARY} more={MORE} onAdd={() => setAdding(true)} />
       <BudgetAlerts />
+      <FirstRunPrompt />
       <TxDialog open={adding} onClose={() => setAdding(false)} />
     </div>
   );

@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 
 test.beforeEach(async ({ page }) => {
+  // The one-time welcome would cover the page in every test; it has its own tests below.
+  await page.addInitScript(() => { try { if (!localStorage.getItem("et:onboarded")) localStorage.setItem("et:onboarded", "1"); } catch {} });
   await page.goto("/dashboard");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -183,4 +185,27 @@ test("mobile layout: bottom nav and floating add button", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add transaction" }).last()).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
+});
+
+test("first open offers phone setup once, and remembers the choice", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/dashboard");
+  const dialog = page.getByRole("dialog", { name: "Read bank messages automatically" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("can't read texts itself");
+  await expect(dialog.getByRole("link", { name: "Sign in to set up" })).toBeVisible(); // guests are sent to sign in first
+  await dialog.getByRole("button", { name: "Maybe later" }).click();
+  await expect(dialog).toBeHidden();
+  await page.reload();
+  await page.waitForTimeout(600);
+  await expect(page.getByRole("dialog", { name: "Read bank messages automatically" })).toHaveCount(0);
+  await ctx.close();
+});
+
+test("messages page offers to connect a phone", async ({ page }) => {
+  await page.goto("/messages");
+  await expect(page.getByText("Read your bank messages automatically")).toBeVisible();
+  await expect(page.getByText("A website can't read your text messages")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in to set up" })).toBeVisible();
 });

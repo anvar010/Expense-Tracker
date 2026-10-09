@@ -93,7 +93,8 @@ class MainActivity : ComponentActivity() {
                 Text("What this app does", style = MaterialTheme.typography.titleMedium)
                 Text("It sends your bank transaction messages to your Spendly account. Each message is checked on this phone first: anything that isn't a bank transaction, and anything containing an OTP or security code, is discarded and never stored or sent.")
                 Text("New messages are picked up as they arrive. You can also tap \"Sync this month's messages\" to read this month's inbox once. You can pause or disconnect at any time.")
-                Button(onClick = { settings.consented = true; tick++ }) { Text("I understand, continue") }
+                Text("When you continue, Android will ask to allow SMS access so new bank messages can be picked up. Reading this month's older messages is asked separately, only if you tap Sync.")
+                Button(onClick = { settings.consented = true; receivePerm.launch(Manifest.permission.RECEIVE_SMS); tick++ }) { Text("I understand, continue") }
                 return@Column
             }
 

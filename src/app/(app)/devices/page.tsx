@@ -24,6 +24,11 @@ export default function DevicesPage() {
     else if (r) setError(r.status === 503 ? "Database is not reachable right now." : "Could not load devices.");
   }, []);
   useEffect(() => { if (mode === "user") void load(); }, [mode, load]);
+  // Arriving from "Allow on Android / iPhone" preselects that platform.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("platform");
+    if (p === "ANDROID" || p === "IOS") setPlatform(p);
+  }, []);
 
   if (mode !== "user") {
     return (
