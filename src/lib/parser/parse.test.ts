@@ -145,3 +145,13 @@ describe("cleanMerchantRaw", () => {
     expect(cleanMerchantRaw("DUBAI")).toBe("DUBAI");
   });
 });
+
+describe("generic payment emails", () => {
+  it("reads 'payment of AED X to MERCHANT'", () => {
+    const r = parseMessage("Hi, your payment of AED 62.50 to NOON was successful on 09/10/2026. Thanks for shopping with us.");
+    expect(r).toMatchObject({ type: "EXPENSE", amount: "62.50", currency: "AED", merchant: "Noon" });
+  });
+  it("does not turn 'to another account' into a merchant", () => {
+    expect(parseMessage("AED 200 transferred from your account to another account.").merchant).toBe("");
+  });
+});

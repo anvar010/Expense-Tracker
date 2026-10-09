@@ -137,14 +137,14 @@ export default function DevicesPage() {
       )}
 
       <section className="card space-y-3 p-5">
-        <h2 className="text-base font-semibold">Bank emails (Gmail)</h2>
+        <h2 className="text-base font-semibold">Payment emails (Gmail)</h2>
         <p className="text-sm text-muted">
-          Some banks email every transaction (Mashreq, Tabby and others). A small script in your own Google account sends those emails here, so you don't depend on text messages arriving.
-          It only reads emails from the senders you list, and only this month's.
+          Many banks and apps email every payment, debit or credit. A small script in your own Google account finds this month's emails like that, from any sender, and sends them here, so you don't depend on text messages arriving.
+          Each email is checked inside Google first: only ones that look like a money transaction are sent. Newsletters, personal mail and anything with a one-time code stay in Gmail.
         </p>
         <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted">
           <li>Go to <b>script.google.com</b>, tap <b>New project</b>, delete the sample code, and paste the script below.</li>
-          <li>Replace <code>PASTE_YOUR_SHORTCUT_URL_HERE</code> with your Shortcut URL (the same one your iPhone shortcut or a new key gives you). Add your banks to <code>SENDERS</code>.</li>
+          <li>Replace <code>PASTE_YOUR_SHORTCUT_URL_HERE</code> with your Shortcut URL (the same one your iPhone shortcut or a new key gives you). To read only certain senders, list them in <code>ONLY_FROM</code>.</li>
           <li>Press <b>Run</b> on <code>syncBankEmails</code>. Google asks you to allow access. Choose <b>Advanced</b>, then <b>Go to project</b>, then <b>Allow</b>. This is your own script, so the "unverified" warning is expected.</li>
           <li>Run <code>install</code> once. After that it checks for new bank emails every 10 minutes.</li>
         </ol>

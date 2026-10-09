@@ -88,8 +88,15 @@ export function extractMerchant(text: string): string {
   const m = text.match(
     /(?:\bat\b|@|\bpaid to\b|\bpurchase from\b)\s+((?:[^.,;]|\.(?=[A-Za-z0-9]))+?)(?=\s+(?:on|dated|date|from|using|with|via|ref|avl|avail|available|bal|balance)\b|[.,;]|$)/i,
   );
-  const raw = m?.[1]?.trim() ?? "";
-  return /^(your|the|a|an)\b/i.test(raw) ? "" : raw;
+  let raw = m?.[1]?.trim() ?? "";
+  if (!raw) {
+    // "payment of AED 62.50 to NOON was successful": the verb comes first, then the amount, then "to MERCHANT".
+    const to = text.match(
+      new RegExp(`\\b(?:payment|paid|sent|charged)\\b[^.]{0,40}?${CUR}\\s?[\\d,]+(?:\\.\\d{1,2})?\\s+to\\s+((?:[^.,;]|\\.(?=[A-Za-z0-9]))+?)(?=\\s+(?:was|has|is|on|for|via|using|ref)\\b|[.,;]|$)`, "i"),
+    );
+    raw = to?.[2]?.trim() ?? ""; // group 1 is the currency inside CUR
+  }
+  return /^(your|the|a|an|another)\b/i.test(raw) ? "" : raw;
 }
 
 export function extractAccountRef(text: string): string | undefined {
