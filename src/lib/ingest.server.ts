@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { decrypt, encrypt } from "./crypto.server";
-import { fingerprint } from "./ingest-core";
+import { fingerprint, judgeDuplicate } from "./ingest-core";
+import { Prisma } from "@prisma/client";
 import { aiCategorizationEnabled, getAiProvider } from "./ai/index.server";
 import { applyAiCategory } from "./ai/categorize-fallback";
 import { parseMessage } from "./parser/parse";
@@ -43,10 +44,27 @@ export async function ingestMessage(userId: string, source: "SMS" | "SHORTCUT" |
 
   try {
     const fp = fingerprint(userId, { ...parsed, amount: parsed.amount!, currency: parsed.currency! });
-    const existing = await prisma.transaction.findFirst({ where: { userId, fingerprint: fp }, select: { id: true } });
-    if (existing) {
-      await prisma.messageImport.update({ where: { id: importId }, data: { status: "CONFIRMED", parsedTransactionId: existing.id } });
+    // Compare with what is already saved: same amount and currency within a day or two, from any channel.
+    const when = new Date(parsed.date).getTime();
+    const nearby = await prisma.transaction.findMany({
+      where: {
+        userId, currency: parsed.currency!, amount: new Prisma.Decimal(parsed.amount!),
+        date: { gte: new Date(when - 36 * 3600e3), lte: new Date(when + 36 * 3600e3) },
+      },
+      select: { id: true, source: true, createdAt: true, fingerprint: true, merchant: { select: { displayName: true } } },
+    });
+    const verdict = judgeDuplicate(
+      { fingerprint: fp, source, merchant: parsed.merchant },
+      nearby.map((t) => ({ id: t.id, source: t.source, createdAtMs: +t.createdAt, fingerprint: t.fingerprint, merchant: t.merchant?.displayName ?? "" })),
+    );
+    if (verdict.verdict === "duplicate") {
+      await prisma.messageImport.update({ where: { id: importId }, data: { status: "CONFIRMED", parsedTransactionId: verdict.id } });
       return { status: "duplicate" };
+    }
+    if (verdict.verdict === "review") {
+      // Might be the same purchase entered another way, but it can't be proven. The user decides; nothing is lost.
+      await prisma.messageImport.update({ where: { id: importId }, data: { encryptedMessage: encrypt(p.text) } });
+      return { status: "needs_review" };
     }
 
     if (parsed.needsReview) {

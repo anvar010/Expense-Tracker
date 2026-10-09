@@ -63,6 +63,38 @@ export const shortcutMessageId = (text: string) => "sc-" + createHash("sha256").
 
 export const DEVICE_KEY_PATTERN = /^etd_[A-Za-z0-9_-]{20,}$/;
 
+export const SAME_SOURCE_WINDOW_MS = 60 * 60 * 1000;
+
+/** Two merchant names that could be the same place: equal, either unknown, or one contains the other. */
+export function merchantCompatible(a: string, b: string): boolean {
+  const x = normalizeMerchant(a), y = normalizeMerchant(b);
+  if (!x || !y || x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  const words = new Set(long.split(" "));
+  // Whole words only, so "uber" does not match "subers cafe".
+  return short.length >= 4 && short.split(" ").every((w) => words.has(w));
+}
+
+export type ExistingTx = { id: string; source: string; createdAtMs: number; fingerprint: string | null; merchant: string };
+export type DuplicateVerdict = { verdict: "new" } | { verdict: "duplicate"; id: string } | { verdict: "review"; id: string };
+
+/**
+ * Decides what an incoming message is, given transactions with the same amount and currency within a day or two.
+ * - Same fingerprint from ANOTHER channel (email vs SMS, manual, import): the same event, so it is a duplicate.
+ * - Same fingerprint from the SAME channel within an hour: a resend, so a duplicate. Later than that it is a new
+ *   purchase (two coffees at the same shop on one day), so it is created.
+ * - Looks similar but cannot be proven the same (no card digits, typed in by hand): held for the user to decide.
+ */
+export function judgeDuplicate(msg: { fingerprint: string; source: string; merchant: string }, existing: ExistingTx[], now = Date.now()): DuplicateVerdict {
+  const similar = existing.filter((e) => merchantCompatible(msg.merchant, e.merchant));
+  for (const e of similar) {
+    if (e.fingerprint !== msg.fingerprint) continue;
+    if (e.source !== msg.source || now - e.createdAtMs < SAME_SOURCE_WINDOW_MS) return { verdict: "duplicate", id: e.id };
+  }
+  const unsure = similar.find((e) => e.fingerprint !== msg.fingerprint);
+  return unsure ? { verdict: "review", id: unsure.id } : { verdict: "new" };
+}
+
 export function bearerToken(header: string | null) {
   const m = header?.match(/^Bearer (etd_[A-Za-z0-9_-]{20,})$/);
   return m?.[1] ?? null;

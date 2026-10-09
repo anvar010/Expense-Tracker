@@ -91,3 +91,37 @@ describe("email bodies for the easy endpoint", () => {
     expect(t).not.toMatch(/<|color:red/);
   });
 });
+
+import { judgeDuplicate, merchantCompatible } from "./ingest-core";
+describe("judgeDuplicate", () => {
+  const now = 1_800_000_000_000;
+  const tx = (o: Partial<{ id: string; source: string; createdAtMs: number; fingerprint: string | null; merchant: string }> = {}) =>
+    ({ id: "t1", source: "EMAIL", createdAtMs: now - 5 * 60_000, fingerprint: "fp", merchant: "Al Shahama Supermarket", ...o });
+  const msg = { fingerprint: "fp", source: "SMS", merchant: "Al Shahama Supermarket" };
+
+  it("same event from another channel is a duplicate, however late it arrives", () => {
+    expect(judgeDuplicate(msg, [tx({ createdAtMs: now - 5 * 3600e3 })], now)).toEqual({ verdict: "duplicate", id: "t1" });
+  });
+  it("same channel resent within an hour is a duplicate", () => {
+    expect(judgeDuplicate({ ...msg, source: "EMAIL" }, [tx()], now).verdict).toBe("duplicate");
+  });
+  it("same channel hours later is a genuine second purchase", () => {
+    expect(judgeDuplicate({ ...msg, source: "EMAIL" }, [tx({ createdAtMs: now - 3 * 3600e3 })], now).verdict).toBe("new");
+  });
+  it("a hand-typed or incomplete match is held for review, not dropped and not duplicated", () => {
+    expect(judgeDuplicate(msg, [tx({ source: "MANUAL", fingerprint: null })], now).verdict).toBe("review");
+    expect(judgeDuplicate(msg, [tx({ fingerprint: "other" })], now).verdict).toBe("review");
+  });
+  it("different merchant or nothing nearby is new", () => {
+    expect(judgeDuplicate(msg, [tx({ merchant: "Carrefour", fingerprint: "x" })], now).verdict).toBe("new");
+    expect(judgeDuplicate(msg, [], now).verdict).toBe("new");
+  });
+});
+describe("merchantCompatible", () => {
+  it("handles unknown, contained and different names", () => {
+    expect(merchantCompatible("", "Talabat")).toBe(true);
+    expect(merchantCompatible("Al Shahama Supermarket", "Al Shahama Supermarket Dubai")).toBe(true);
+    expect(merchantCompatible("Talabat", "Carrefour")).toBe(false);
+    expect(merchantCompatible("Uber", "Subers cafe")).toBe(false); // too short to match as a substring
+  });
+});
