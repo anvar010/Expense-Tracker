@@ -97,3 +97,13 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* iOS Safari zooms the page when a focused field has a font smaller than 16px. Keep fields at 16px on phones
+   (desktop keeps the compact size) instead of disabling pinch-zoom, which would hurt accessibility. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
