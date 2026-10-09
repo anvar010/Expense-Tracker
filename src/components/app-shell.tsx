@@ -32,10 +32,10 @@ function StatusPill() {
   if (mode === "guest")
     return <span className="whitespace-nowrap rounded-full bg-surface-2 px-3 py-1 text-xs text-muted">Guest<span className="hidden sm:inline"> · saved on this device</span></span>;
   return (
-    <span className={cn("inline-flex max-w-[14rem] items-center gap-1.5 truncate whitespace-nowrap rounded-full px-3 py-1 text-xs",
+    <span title={session?.email} className={cn("inline-flex max-w-[14rem] items-center gap-1.5 truncate whitespace-nowrap rounded-full px-3 py-1 text-xs",
       sync === "offline" ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent")}>
       {sync === "offline" && <CloudOff size={12} />}
-      {sync === "offline" ? `Offline · ${pending} waiting to sync` : sync === "syncing" ? "Syncing…" : session?.email}
+      {sync === "offline" ? `Offline · ${pending} waiting to sync` : sync === "syncing" ? "Syncing…" : session?.name}
     </span>
   );
 }
