@@ -90,7 +90,13 @@ export default function DevicesPage() {
           ))}
           {tokenPlatform === "IOS" && (
             <div className="rounded-xl bg-surface-2 p-4 text-sm">
-              <p className="font-medium">Set it up in the Shortcuts app (about 3 minutes)</p>
+              <p className="font-medium">Quick setup (about 2 minutes)</p>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted">
+                <li>On your iPhone, tap <a className="font-medium text-foreground underline" href="/Spendly%20Sync.shortcut">Add the Spendly Sync shortcut</a>. When it asks for your Shortcut URL, paste the one above, then tap <b>Add Shortcut</b>.</li>
+                <li>In Shortcuts, go to <b>Automation</b> → <b>+</b> → <b>Create Personal Automation</b> → <b>Message</b>. Set <b>Sender</b> to your bank (or <b>Message Contains</b> a word like <code>AED</code>), choose <b>Run Immediately</b>, then <b>Next</b>.</li>
+                <li>Tap <b>New Blank Automation</b>, add the <b>Run Shortcut</b> action, and choose <b>Spendly Sync</b>. If it has an <b>Input</b> field, set it to <b>Shortcut Input</b>. Tap <b>Done</b>.</li>
+              </ol>
+              <p className="mt-3 font-medium">Or set it up by hand (no download)</p>
               <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted">
                 <li>Shortcuts → <b>Automation</b> → <b>+</b> → <b>Create Personal Automation</b> → <b>Message</b>.</li>
                 <li>Set <b>Sender</b> to your bank (or <b>Message Contains</b> a word like <code>AED</code>). Choose <b>Run Immediately</b>, then <b>Next</b>.</li>
@@ -98,7 +104,7 @@ export default function DevicesPage() {
                 <li>Paste the <b>Shortcut URL</b> above. Tap the small arrow to open options: Method <b>POST</b>, Request Body <b>File</b>, then choose <b>Shortcut Input</b>.</li>
                 <li>Tap <b>Done</b>. That is the whole Shortcut: one action.</li>
               </ol>
-              <p className="mt-2 text-xs text-muted">The key is part of this address, so treat the address like a password. If it leaks, revoke the device below and create a new one. If your iOS only offers <b>Run After Confirmation</b>, you'll need to tap a banner for each message.</p>
+              <p className="mt-2 text-xs text-muted">If the shortcut did not ask for your URL, open it, tap the URL box and paste your Shortcut URL. The key is part of this address, so treat the address like a password. If it leaks, revoke the device below and create a new one. If your iOS only offers <b>Run After Confirmation</b>, you'll need to tap a banner for each message.</p>
             </div>
           )}
           <details className="text-sm text-muted">
