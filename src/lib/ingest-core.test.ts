@@ -74,3 +74,20 @@ describe("message encryption", () => {
     expect(() => encrypt("x")).toThrow();
   });
 });
+
+import { htmlToText, parseShortcutBody } from "./ingest-core";
+describe("email bodies for the easy endpoint", () => {
+  it("keeps plain text as a shortcut message", () => {
+    expect(parseShortcutBody("AED 45 debited")).toEqual({ text: "AED 45 debited", source: "SHORTCUT" });
+  });
+  it("accepts JSON with source and the email's own date", () => {
+    const b = parseShortcutBody(JSON.stringify({ text: "AED 6 purchase", receivedAt: "2026-10-09T10:04:00Z", source: "EMAIL" }));
+    expect(b).toMatchObject({ text: "AED 6 purchase", source: "EMAIL", receivedAt: "2026-10-09T10:04:00.000Z" });
+    expect(parseShortcutBody(JSON.stringify({ text: "x", receivedAt: "not a date" })).receivedAt).toBeUndefined();
+  });
+  it("turns HTML emails into readable text", () => {
+    const t = htmlToText("<html><body><p>Purchase of <b>AED&nbsp;6.00</b> at SHOP</p><style>p{color:red}</style></body></html>");
+    expect(t).toContain("AED 6.00");
+    expect(t).not.toMatch(/<|color:red/);
+  });
+});

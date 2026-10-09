@@ -23,7 +23,7 @@ async function userRules(userId: string): Promise<CategoryRule[]> {
  * Pipeline: dedupe by messageId → parse (OTPs dropped, nothing stored) → confident? create transaction :
  * park the message, encrypted, in the review queue. Raw text is not kept for confident parses.
  */
-export async function ingestMessage(userId: string, source: "SMS" | "SHORTCUT", p: IngestPayload): Promise<IngestResult> {
+export async function ingestMessage(userId: string, source: "SMS" | "SHORTCUT" | "EMAIL", p: IngestPayload): Promise<IngestResult> {
   const receivedAt = p.receivedAt ? new Date(p.receivedAt) : new Date();
   let parsed = parseMessage(p.text, { rules: await userRules(userId), receivedAt });
   // Opt-in AI fallback for merchants the rules couldn't place (inputs are redacted inside the provider).

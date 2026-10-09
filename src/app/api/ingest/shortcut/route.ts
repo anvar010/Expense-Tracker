@@ -1,7 +1,7 @@
 import { fail, handleError, ok } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { authenticateDevice } from "@/lib/devices.server";
-import { DEVICE_KEY_PATTERN, extractShortcutText, shortcutMessageId } from "@/lib/ingest-core";
+import { DEVICE_KEY_PATTERN, parseShortcutBody, shortcutMessageId } from "@/lib/ingest-core";
 import { ingestMessage } from "@/lib/ingest.server";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -22,10 +22,10 @@ export async function POST(req: Request) {
     const device = await authenticateDevice(key);
     if (!device) return fail("Unauthorized", 401);
 
-    const text = extractShortcutText(await req.text());
+    const { text, receivedAt, source } = parseShortcutBody(await req.text());
     if (!text) return fail("The message text is empty", 400);
 
-    const result = await ingestMessage(device.userId, "SHORTCUT", { messageId: shortcutMessageId(text), text, receivedAt: new Date().toISOString() });
+    const result = await ingestMessage(device.userId, source, { messageId: shortcutMessageId(text), text, receivedAt: receivedAt ?? new Date().toISOString() });
     await prisma.device.update({ where: { id: device.id }, data: { lastSyncAt: new Date() } });
     return ok(result);
   } catch (e) {

@@ -99,7 +99,31 @@ export function extractAccountRef(text: string): string | undefined {
   );
 }
 
-const SECRET = /\b(otp|one[- ]?time (?:password|code)|verification code|cvv|pin)\b/i;
+/**
+ * True when the text delivers a security code (e.g. "Your OTP is 482913", "CVV 123"). Merely mentioning
+ * OTP or PIN is not enough: bank emails routinely end with "we will never ask for your PIN, OTP or password".
+ */
+export function containsSecurityCode(text: string): boolean {
+  return (
+    /\b(otp|one[- ]?time (?:password|code|pin)|verification code|security code|passcode)\b[^.\n]{0,60}?\b\d{4,8}\b/i.test(text) ||
+    /\b\d{4,8}\b[^.\n]{0,30}\b(?:is|as) (?:your|the) (?:otp|one[- ]?time|verification|security)/i.test(text) ||
+    /\bcvv\s*[:=]?\s*\d{3,4}\b/i.test(text)
+  );
+}
+
+const COUNTRY_SUFFIX = /\s+(?:AE|ARE|US|USA|GB|UK|IN|SA|KW|BH|OM|QA|EG|PK)$/i;
+const CITY_SUFFIX = /\s+(?:DUBAI|ABU DHABI|SHARJAH|AJMAN|FUJAIRAH|RAS AL KHAIMAH|UMM AL QUWAIN|AL AIN)$/i;
+
+/** "AL SHAHAMA SUPERMARKET DUBAI AE" becomes "AL SHAHAMA SUPERMARKET": card networks append city and country. */
+export function cleanMerchantRaw(raw: string): string {
+  let m = raw.trim();
+  for (let i = 0; i < 3; i++) {
+    const next = m.replace(COUNTRY_SUFFIX, "").replace(CITY_SUFFIX, "").trim();
+    if (next === m || next.split(" ").length < 1 || next === "") break;
+    m = next;
+  }
+  return m;
+}
 
 export type ParseOptions = { rules?: CategoryRule[]; dayFirst?: boolean; receivedAt?: Date };
 
@@ -110,7 +134,7 @@ export function parseMessage(raw: string, opts: ParseOptions = {}): ParsedMessag
   });
   const text = normalizeMessage(raw);
   if (!text) return empty("Empty message");
-  if (SECRET.test(text)) return empty("Contains an OTP or security code, so it was ignored");
+  if (containsSecurityCode(text)) return empty("Contains an OTP or security code, so it was ignored");
 
   const amounts = extractAmounts(text);
   const main = amounts.find((a) => !a.isBalance);
@@ -124,7 +148,7 @@ export function parseMessage(raw: string, opts: ParseOptions = {}): ParsedMessag
     return empty("Doesn't look like a bank transaction");
   }
 
-  const merchantRaw = (g.merchant ?? extractMerchant(text)).trim();
+  const merchantRaw = cleanMerchantRaw((g.merchant ?? extractMerchant(text)).trim());
   const known = merchantRaw ? findKnownMerchant(merchantRaw) : undefined;
   const merchant = known?.display ?? (merchantRaw ? titleCase(merchantRaw) : "");
 

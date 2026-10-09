@@ -100,3 +100,48 @@ describe("findDuplicate", () => {
     expect(findDuplicate({ ...cand, currency: "USD" }, [existing])).toBeUndefined();
   });
 });
+
+import { cleanMerchantRaw, containsSecurityCode } from "./parse";
+
+describe("bank emails (Mashreq)", () => {
+  const email = `Dear Customer,
+
+Thank you for banking with Mashreq Bank.
+
+Please note the details of a recent transaction on your Mashreq Card.
+
+Your NEO VISA Debit Card Card ending with 7666 was used for a purchase of AED 6.00 at AL SHAHAMA SUPERMARKET DUBAI AE on 09-OCT-2026 02:04 PM. Available limit is AED  1000
+
+This is a system generated alert. We request you not to reply to this message.`;
+  const footer = "\n\nMashreq will never ask for your PIN, OTP or password over email or phone. Never share them with anyone.";
+
+  it("parses amount, card, date, merchant and category", () => {
+    const r = parseMessage(email);
+    expect(r).toMatchObject({ type: "EXPENSE", amount: "6.00", currency: "AED", merchant: "Al Shahama Supermarket", category: "Groceries", accountRef: "7666", balance: "1000", needsReview: false });
+    const d = new Date(r.date);
+    expect([d.getFullYear(), d.getMonth() + 1, d.getDate()]).toEqual([2026, 10, 9]);
+  });
+  it("is not rejected by a security disclaimer that only mentions PIN/OTP/password", () => {
+    expect(parseMessage(email + footer)).toMatchObject({ isTransaction: true, amount: "6.00" });
+  });
+});
+
+describe("security code detection", () => {
+  it("flags messages that deliver a code", () => {
+    for (const t of ["Your OTP is 482913", "482913 is your verification code", "Use one-time password 7391 to approve AED 50", "CVV: 123", "Your OTP for AED 500 payment at AMAZON is 482913"])
+      expect(containsSecurityCode(t)).toBe(true);
+  });
+  it("lets through messages that merely mention them", () => {
+    for (const t of ["We will never ask for your PIN, OTP or password.", "Never share your OTP with anyone. AED 45.00 debited at TALABAT"])
+      expect(containsSecurityCode(t)).toBe(false);
+  });
+});
+
+describe("cleanMerchantRaw", () => {
+  it("drops trailing city and country but keeps real names", () => {
+    expect(cleanMerchantRaw("AL SHAHAMA SUPERMARKET DUBAI AE")).toBe("AL SHAHAMA SUPERMARKET");
+    expect(cleanMerchantRaw("SPINNEYS ABU DHABI AE")).toBe("SPINNEYS");
+    expect(cleanMerchantRaw("TALABAT")).toBe("TALABAT");
+    expect(cleanMerchantRaw("DUBAI")).toBe("DUBAI");
+  });
+});

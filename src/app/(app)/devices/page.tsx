@@ -3,6 +3,7 @@
 import { Check, Copy, Smartphone, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { GMAIL_SCRIPT } from "@/lib/gmail-script";
 import { useData } from "@/lib/store/data-provider";
 
 type Device = { id: string; name: string; platform: string; status: string; lastSyncAt: string | null };
@@ -134,6 +135,26 @@ export default function DevicesPage() {
           </details>
         </section>
       )}
+
+      <section className="card space-y-3 p-5">
+        <h2 className="text-base font-semibold">Bank emails (Gmail)</h2>
+        <p className="text-sm text-muted">
+          Some banks email every transaction (Mashreq, Tabby and others). A small script in your own Google account sends those emails here, so you don't depend on text messages arriving.
+          It only reads emails from the senders you list, and only this month's.
+        </p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted">
+          <li>Go to <b>script.google.com</b>, tap <b>New project</b>, delete the sample code, and paste the script below.</li>
+          <li>Replace <code>PASTE_YOUR_SHORTCUT_URL_HERE</code> with your Shortcut URL (the same one your iPhone shortcut or a new key gives you). Add your banks to <code>SENDERS</code>.</li>
+          <li>Press <b>Run</b> on <code>syncBankEmails</code>. Google asks you to allow access. Choose <b>Advanced</b>, then <b>Go to project</b>, then <b>Allow</b>. This is your own script, so the "unverified" warning is expected.</li>
+          <li>Run <code>install</code> once. After that it checks for new bank emails every 10 minutes.</li>
+        </ol>
+        <div className="relative">
+          <pre className="max-h-64 overflow-auto rounded-xl bg-surface-2 p-3 text-xs leading-relaxed"><code>{GMAIL_SCRIPT}</code></pre>
+          <button type="button" className="btn-ghost absolute right-2 top-2 !min-h-8 text-xs" onClick={() => copy("Script", GMAIL_SCRIPT)}>
+            {copied === "Script" ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy script</>}
+          </button>
+        </div>
+      </section>
 
       <ul className="card divide-y divide-border">
         {devices.length === 0 && <li className="p-6 text-center text-sm text-muted">No devices yet.</li>}
