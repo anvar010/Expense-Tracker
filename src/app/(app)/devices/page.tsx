@@ -13,6 +13,7 @@ export default function DevicesPage() {
   const [name, setName] = useState("");
   const [platform, setPlatform] = useState<"ANDROID" | "IOS">("ANDROID");
   const [token, setToken] = useState("");
+  const [tokenPlatform, setTokenPlatform] = useState<"ANDROID" | "IOS">("ANDROID");
   const [copied, setCopied] = useState("");
   const [error, setError] = useState("");
   const endpoint = typeof window === "undefined" ? "" : `${window.location.origin}/api/ingest`;
@@ -41,6 +42,7 @@ export default function DevicesPage() {
     const r = await fetch("/api/devices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, platform }) }).catch(() => null);
     if (!r?.ok) return setError(r?.status === 503 ? "Database is not reachable right now." : "Could not create the device.");
     setToken((await r.json()).data.token);
+    setTokenPlatform(platform);
     setName("");
     void load();
   }
@@ -71,21 +73,37 @@ export default function DevicesPage() {
       {token && (
         <section className="card space-y-3 border-accent/50 p-4">
           <p className="text-sm font-medium">Copy this key now. It is shown only once.</p>
-          {[["Key", token], ["Server URL", endpoint]].map(([label, value]) => (
+          {(tokenPlatform === "IOS"
+            ? [["Shortcut URL", `${endpoint}/shortcut?key=${token}`]]
+            : [["Key", token], ["Server URL", endpoint]]
+          ).map(([label, value]) => (
             <div key={label} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 text-xs text-muted">{label}</span>
+              <span className="w-24 shrink-0 text-xs text-muted">{label}</span>
               <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-3 py-2 text-xs">{value}</code>
               <button className="btn-ghost size-10 !p-0" aria-label={`Copy ${label}`} onClick={() => copy(label, value)}>{copied === label ? <Check size={16} /> : <Copy size={16} />}</button>
             </div>
           ))}
+          {tokenPlatform === "IOS" && (
+            <div className="rounded-xl bg-surface-2 p-4 text-sm">
+              <p className="font-medium">Set it up in the Shortcuts app (about 3 minutes)</p>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted">
+                <li>Shortcuts → <b>Automation</b> → <b>+</b> → <b>Create Personal Automation</b> → <b>Message</b>.</li>
+                <li>Set <b>Sender</b> to your bank (or <b>Message Contains</b> a word like <code>AED</code>). Choose <b>Run Immediately</b>, then <b>Next</b>.</li>
+                <li>Tap <b>New Blank Automation</b>, search for <b>Get Contents of URL</b>, and add it.</li>
+                <li>Paste the <b>Shortcut URL</b> above. Tap the small arrow to open options: Method <b>POST</b>, Request Body <b>File</b>, then choose <b>Shortcut Input</b>.</li>
+                <li>Tap <b>Done</b>. That is the whole Shortcut: one action.</li>
+              </ol>
+              <p className="mt-2 text-xs text-muted">The key is part of this address, so treat the address like a password. If it leaks, revoke the device below and create a new one. If your iOS only offers <b>Run After Confirmation</b>, you'll need to tap a banner for each message.</p>
+            </div>
+          )}
           <details className="text-sm text-muted">
-            <summary className="cursor-pointer text-foreground">iPhone Shortcut setup</summary>
+            <summary className="cursor-pointer text-foreground">iPhone: advanced setup (stricter, with headers)</summary>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
               <li>Shortcuts → Automation → New → <b>Message</b> → filter by your bank’s sender.</li>
               <li>Choose <b>Run Immediately</b> (availability depends on your iOS version).</li>
               <li>Add <b>Get Contents of URL</b>: the Server URL above, method <b>POST</b>, JSON body.</li>
-              <li>Headers: <code>Authorization: Bearer &lt;key&gt;</code>, <code>X-Request-Time</code> = Current Date as Unix time × 1000.</li>
-              <li>Body: <code>messageId</code> (a random UUID), <code>text</code> (Shortcut Input).</li>
+              <li>Headers: <code>Authorization: Bearer &lt;key&gt;</code>, <code>Content-Type: application/json</code>, and <code>X-Request-Time</code> = Current Date formatted as ISO 8601.</li>
+              <li>Body (JSON): <code>messageId</code> = the Hash (SHA256) of the Shortcut Input, <code>text</code> = Shortcut Input. Using the hash means the same message is never added twice.</li>
             </ol>
           </details>
           <details className="text-sm text-muted">

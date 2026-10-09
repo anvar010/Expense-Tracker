@@ -6,7 +6,7 @@
 | Header | Value |
 |---|---|
 | `Authorization` | `Bearer etd_…` per-device key from **Devices** in the web app |
-| `X-Request-Time` | current time, milliseconds since epoch. Rejected if more than ±10 minutes from server time |
+| `X-Request-Time` | current time: milliseconds since epoch, or an ISO 8601 date-time. Rejected if more than ±10 minutes from server time |
 | `Content-Type` | `application/json` |
 
 Body: `{ "messageId": "<unique id, 8-100 chars>", "text": "<message>", "receivedAt": "<ISO-8601, optional>" }`
@@ -21,7 +21,12 @@ Response `data.status`: `created` · `needs_review` · `duplicate` · `ignored` 
 - **Raw message retention:** confident parses keep no message text. Messages needing review are stored AES-256-GCM encrypted (`MESSAGE_ENCRYPTION_KEY`) and wiped when you accept or discard them. Without a valid key the server refuses to store text.
 - Messages containing OTP / security-code words are discarded before anything is stored.
 
-## iPhone (Shortcuts)
+## iPhone easy mode (recommended for Shortcuts)
+`POST /api/ingest/shortcut?key=etd_...` with the message text as the request body. The whole Shortcut is one **Get Contents of URL** action (Method POST, Request Body: File, Shortcut Input). The message id is derived from the text, so repeats are no-ops.
+
+Trade-off: the key is in the URL, so it can show up in server or proxy logs, and there is no freshness header. A replayed request is harmless (duplicate), and the key is revocable from the Devices page. Use `/api/ingest` below where you want header-based auth.
+
+## iPhone (Shortcuts), advanced
 iOS does not let apps read your SMS inbox. A Shortcuts *Message* automation can fire when a message arrives and call the endpoint. Whether it can run without a tap depends on your iOS version and Shortcuts settings, so test it on your device.
 
 1. Web app → **Devices** → create an iPhone key. Copy the key and URL.

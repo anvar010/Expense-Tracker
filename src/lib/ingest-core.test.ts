@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { bearerToken, fingerprint, isFreshRequest } from "./ingest-core";
+import { bearerToken, extractShortcutText, fingerprint, isFreshRequest, shortcutMessageId } from "./ingest-core";
 import { rateLimit } from "./rate-limit";
 
 describe("request freshness", () => {
@@ -9,6 +9,9 @@ describe("request freshness", () => {
     expect(isFreshRequest(String(now - 11 * 60_000), now)).toBe(false);
     expect(isFreshRequest(String(now + 11 * 60_000), now)).toBe(false);
     expect(isFreshRequest("abc", now)).toBe(false);
+    expect(isFreshRequest(new Date(now - 60_000).toISOString(), now)).toBe(true);
+    expect(isFreshRequest("2026-10-08T22:10:00+04:00", Date.parse("2026-10-08T22:12:00+04:00"))).toBe(true);
+    expect(isFreshRequest(new Date(now - 3600_000).toISOString(), now)).toBe(false);
     expect(isFreshRequest(null, now)).toBe(false);
   });
 });
@@ -27,6 +30,20 @@ describe("fingerprint", () => {
     expect(fingerprint("u1", p)).toBe(fingerprint("u1", { ...p, amount: "45.00", merchant: "TALABAT" }));
     expect(fingerprint("u1", p)).not.toBe(fingerprint("u2", p));
     expect(fingerprint("u1", p)).not.toBe(fingerprint("u1", { ...p, amount: "46" }));
+  });
+});
+
+describe("shortcut easy mode", () => {
+  it("accepts plain text or JSON and trims", () => {
+    expect(extractShortcutText("  AED 45 debited at TALABAT \n")).toBe("AED 45 debited at TALABAT");
+    expect(extractShortcutText('{"text": " AED 45 debited "}')).toBe("AED 45 debited");
+    expect(extractShortcutText("{not json")).toBe("{not json");
+    expect(extractShortcutText("x".repeat(9000))).toHaveLength(4000);
+  });
+  it("derives a stable id from the text", () => {
+    expect(shortcutMessageId("a")).toBe(shortcutMessageId("a"));
+    expect(shortcutMessageId("a")).not.toBe(shortcutMessageId("b"));
+    expect(shortcutMessageId("a").length).toBeGreaterThanOrEqual(8);
   });
 });
 
