@@ -1,6 +1,6 @@
 /* Service worker. Caches the app shell and static assets only.
  * It NEVER caches /api/* or any non-GET request, so financial data is not stored in the HTTP cache. */
-const VERSION = "v1";
+const VERSION = "v3";
 const SHELL = `et-shell-${VERSION}`;
 const STATIC = `et-static-${VERSION}`;
 const PAGES = ["/dashboard", "/transactions", "/messages", "/accounts", "/budgets", "/login"];
@@ -68,4 +68,32 @@ self.addEventListener("sync", (event) => {
       self.clients.matchAll({ type: "window" }).then((cs) => cs.forEach((c) => c.postMessage({ type: "flush" }))),
     );
   }
+});
+
+// Push alerts for new debits/credits (sent by the server when an entry is added).
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  event.waitUntil(
+    self.registration.showNotification(data.title || "New transaction", {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: data.url || "/transactions" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/transactions";
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of all) {
+        if ("focus" in c) { await c.focus(); if ("navigate" in c) await c.navigate(url).catch(() => {}); return; }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
 });

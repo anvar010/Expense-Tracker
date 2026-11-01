@@ -57,15 +57,15 @@ enum Frequency {
   YEARLY
 }
 
+enum UserRole {
+  SUPER_ADMIN
+  USER
+}
+
 enum RecurringStatus {
   SUGGESTED
   ACTIVE
   PAUSED
-}
-
-enum DeviceStatus {
-  ACTIVE
-  REVOKED
 }
 
 model User {
@@ -75,6 +75,8 @@ model User {
   passwordHash      String   @map("password_hash") @db.VarChar(100)
   preferredCurrency String   @default("AED") @map("preferred_currency") @db.VarChar(3)
   timezone          String   @default("Asia/Dubai") @db.VarChar(64)
+  role              UserRole @default(USER)
+  active            Boolean  @default(true) @map("is_active")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -84,9 +86,8 @@ model User {
   merchantRules  MerchantRule[]
   budgets        Budget[]
   recurring      RecurringTransaction[]
-  messageImports MessageImport[]
   notifications  Notification[]
-  devices        Device[]
+  pushSubs       PushSubscription[]
   insights       AiInsight[]
   auditLogs      AuditLog[]
 
@@ -242,23 +243,6 @@ model RecurringTransaction {
   @@map("recurring_transactions")
 }
 
-model MessageImport {
-  id                  String            @id @default(uuid()) @db.VarChar(36)
-  userId              String            @map("user_id") @db.VarChar(36)
-  source              TransactionSource
-  sourceReference     String?           @map("source_reference") @db.VarChar(120)
-  encryptedMessage    String            @map("encrypted_message") @db.Text
-  status              ProcessingStatus  @default(NEEDS_REVIEW) @map("processing_status")
-  parsedTransactionId String?           @map("parsed_transaction_id") @db.VarChar(36)
-  receivedAt          DateTime          @map("received_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, sourceReference])
-  @@index([userId, status])
-  @@map("message_imports")
-}
-
 model Notification {
   id        String    @id @default(uuid()) @db.VarChar(36)
   userId    String    @map("user_id") @db.VarChar(36)
@@ -274,19 +258,18 @@ model Notification {
   @@map("notifications")
 }
 
-model Device {
-  id         String       @id @default(uuid()) @db.VarChar(36)
-  userId     String       @map("user_id") @db.VarChar(36)
-  name       String       @map("device_name") @db.VarChar(120)
-  platform   String       @db.VarChar(20)
-  tokenHash  String       @unique @map("token_hash") @db.VarChar(64)
-  lastSyncAt DateTime?    @map("last_sync_at")
-  status     DeviceStatus @default(ACTIVE)
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  endpoint  String   @unique @db.VarChar(700)
+  p256dh    String   @db.VarChar(200)
+  auth      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("devices")
+  @@map("push_subscriptions")
 }
 
 model AiInsight {

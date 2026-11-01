@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { BUDGET_PERIODS, CURRENCIES, DEFAULT_CATEGORIES, budgetInputSchema, type Budget, type BudgetInput } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const blank: BudgetInput = { category: "", amount: "", currency: "AED", period: "MONTHLY" };
 const BAR = { ok: "bg-accent", warn: "bg-warning", danger: "bg-warning", over: "bg-danger" } as const;
@@ -29,14 +30,14 @@ function BudgetForm({ initial, onSave, onCancel }: { initial?: Budget; onSave: (
       <h2 className="font-medium">{initial ? "Edit budget" : "New budget"}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <div><label className="label" htmlFor="b-cat">Category</label>
-          <select id="b-cat" className="input" value={v.category} onChange={(e) => set("category", e.target.value)}>
-            <option value="">Overall (all spending)</option>{DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+          <Select id="b-cat" className="input" value={v.category} onChange={(e) => set("category", e.target.value)}>
+            <option value="">Overall (all spending)</option>{DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</Select></div>
         <div><label className="label" htmlFor="b-amt">Amount</label><input id="b-amt" inputMode="decimal" className="input num" value={v.amount} onChange={(e) => set("amount", e.target.value)} /></div>
         <div><label className="label" htmlFor="b-cur">Currency</label>
-          <select id="b-cur" className="input" value={v.currency} onChange={(e) => set("currency", e.target.value as BudgetInput["currency"])}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+          <Select id="b-cur" className="input" value={v.currency} onChange={(e) => set("currency", e.target.value as BudgetInput["currency"])}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select></div>
         <div><label className="label" htmlFor="b-per">Period</label>
-          <select id="b-per" className="input" value={v.period} onChange={(e) => set("period", e.target.value as BudgetInput["period"])}>
-            {BUDGET_PERIODS.map((p) => <option key={p} value={p}>{p.toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</option>)}</select></div>
+          <Select id="b-per" className="input" value={v.period} onChange={(e) => set("period", e.target.value as BudgetInput["period"])}>
+            {BUDGET_PERIODS.map((p) => <option key={p} value={p}>{p.toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</option>)}</Select></div>
         {v.period === "CUSTOM" && (<>
           <div><label className="label" htmlFor="b-s">Start</label><input id="b-s" type="date" className="input" value={v.startDate?.slice(0, 10) ?? ""} onChange={(e) => set("startDate", e.target.value)} /></div>
           <div><label className="label" htmlFor="b-e">End</label><input id="b-e" type="date" className="input" value={v.endDate?.slice(0, 10) ?? ""} onChange={(e) => set("endDate", e.target.value)} /></div>
@@ -126,16 +127,16 @@ export default function BudgetsPage() {
         <section className="card p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium">History (last 6 months)</h2>
-            <select aria-label="Budget" className="input !w-auto" value={hist.id} onChange={(e) => setHistId(e.target.value)}>
+            <Select aria-label="Budget" className="input !w-auto" value={hist.id} onChange={(e) => setHistId(e.target.value)}>
               {items.filter((b) => b.period === "MONTHLY").map((b) => <option key={b.id} value={b.id}>{b.category || "Overall"}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyHistory(hist, txs)}>
                 <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
                 <YAxis tickLine={false} axisLine={false} fontSize={11} width={44} stroke="#94a3b8" />
-                <Tooltip /><Bar dataKey="spent" name="Spent" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                <Tooltip /><Bar dataKey="spent" name="Spent" fill="#e11d2e" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

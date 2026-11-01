@@ -12,11 +12,12 @@ import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import type { Recurring } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const TONE = {
   warning: { icon: TriangleAlert, cls: "text-warning bg-warning/10" },
   positive: { icon: CircleCheck, cls: "text-accent bg-accent/10" },
-  info: { icon: Lightbulb, cls: "text-secondary bg-secondary/10" },
+  info: { icon: Lightbulb, cls: "text-foreground bg-surface-2" },
 } as const;
 const EXAMPLES = ["How much did I spend on food this month?", "What was my biggest expense last week?", "Show my top five merchants", "Compare this month with last month", "Which subscriptions do I pay for?", "How much did I save this month?"];
 
@@ -77,7 +78,7 @@ export default function InsightsPage() {
           <p className="mt-1 text-sm text-muted">Every figure is calculated from your own transactions.</p>
         </div>
         {currencies.length > 1 && (
-          <select aria-label="Currency" className="input !w-auto" value={currency} onChange={(e) => setPicked(e.target.value)}>{currencies.map((c) => <option key={c}>{c}</option>)}</select>
+          <Select aria-label="Currency" className="input !w-auto" value={currency} onChange={(e) => setPicked(e.target.value)}>{currencies.map((c) => <option key={c}>{c}</option>)}</Select>
         )}
       </div>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}

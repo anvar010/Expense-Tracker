@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
+import { after } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "./db";
+import { notifyTransaction } from "./push.server";
 import type { Tx, TxInput } from "./types";
 
 const include = { category: true, merchant: true } as const;
@@ -76,7 +78,10 @@ export async function createTransaction(userId: string, input: TxInput, extra: T
     },
     include,
   });
-  return toDto(row);
+  const dto = toDto(row);
+  // Bulk statement imports would flood the phone, so only entries added one by one send an alert.
+  if (input.source !== "IMPORT") after(() => notifyTransaction(userId, dto));
+  return dto;
 }
 
 export async function updateTransaction(userId: string, id: string, input: TxInput): Promise<Tx | null> {

@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { useState } from "react";
 import { useData } from "@/lib/store/data-provider";
 import { useNotifications } from "@/lib/store/notifications";
+import { PushToggle } from "./push-toggle";
 
 export function NotificationBell() {
   const { mode } = useData();
@@ -33,6 +34,7 @@ export function NotificationBell() {
               ))}
             </ul>
           )}
+          {mode === "user" && <PushToggle />}
         </div>
       )}
     </div>

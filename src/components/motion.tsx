@@ -51,7 +51,7 @@ export function Bar({ pct, className, trackClassName }: { pct: number; className
   return (
     <div className={trackClassName ?? "h-2 rounded-full bg-surface-2"} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
       <motion.div
-        className={className ?? "h-full rounded-full bg-accent"}
+        className={className ?? "h-full rounded-full bg-primary"}
         initial={{ width: 0 }}
         animate={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}

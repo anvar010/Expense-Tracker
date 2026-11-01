@@ -63,7 +63,7 @@ export function Dock({ primary, more, onAdd }: { primary: DockItem[]; more: Dock
           {left.map((i) => <DockLink key={i.href} item={i} active={isActive(i.href)} pillId="pill-desktop" />)}
           <motion.button
             type="button" aria-label="Add transaction" onClick={onAdd} whileHover={{ y: -2 }} whileTap={{ scale: 0.94 }} transition={PILL}
-            className="mx-1 flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl bg-accent px-1.5 py-2 text-[11px] font-semibold lg:mx-2 lg:min-w-[6.5rem] lg:gap-1.5 lg:px-4 lg:py-3 lg:text-xs xl:min-w-[7.5rem] text-emerald-950 shadow-[0_8px_24px_-8px_rgb(16_185_129/0.7)]"
+            className="mx-1 flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl bg-primary px-1.5 py-2 text-[11px] font-semibold lg:mx-2 lg:min-w-[6.5rem] lg:gap-1.5 lg:px-4 lg:py-3 lg:text-xs xl:min-w-[7.5rem] text-primary-fg shadow-[0_8px_24px_-8px_rgb(217_10_30/0.6)]"
           >
             <Plus strokeWidth={2.4} className="size-5 lg:size-6" /> Add
           </motion.button>
@@ -72,13 +72,13 @@ export function Dock({ primary, more, onAdd }: { primary: DockItem[]; more: Dock
       </nav>
 
       {/* Phones: four tabs plus a "More" sheet, with the same centre Add. */}
-      <nav aria-label="Main" className="glass fixed inset-x-3 bottom-3 z-30 flex items-end rounded-3xl p-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden">
+      <nav aria-label="Main" suppressHydrationWarning className="glass fixed inset-x-3 bottom-3 z-30 grid grid-cols-5 items-end rounded-3xl p-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden">
         <DockLink item={primary[0]} active={isActive(primary[0].href)} pillId="pill-mobile" compact />
         <DockLink item={primary[1]} active={isActive(primary[1].href)} pillId="pill-mobile" compact />
-        <div className="flex flex-1 justify-center">
+        <div className="flex justify-center">
           <motion.button
             type="button" aria-label="Add transaction" onClick={onAdd} whileTap={{ scale: 0.92 }} transition={PILL}
-            className="-mt-7 grid size-14 place-items-center rounded-full bg-accent text-emerald-950 shadow-[0_10px_28px_-6px_rgb(16_185_129/0.75)] ring-4 ring-background"
+            className="-mt-7 grid size-14 place-items-center rounded-full bg-primary text-primary-fg shadow-[0_10px_28px_-6px_rgb(217_10_30/0.65)] ring-4 ring-background"
           >
             <Plus size={26} strokeWidth={2.4} />
           </motion.button>

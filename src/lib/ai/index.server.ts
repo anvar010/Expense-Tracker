@@ -9,6 +9,3 @@ export function getAiProvider(): AiProvider | null {
   cached = process.env.AI_PROVIDER !== "none" && process.env.ANTHROPIC_API_KEY ? new AnthropicProvider() : null;
   return cached;
 }
-
-/** Sending merchant text to a third party is opt-in. */
-export const aiCategorizationEnabled = () => process.env.AI_CATEGORIZATION === "true" && !!getAiProvider();

@@ -12,6 +12,7 @@ import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import { CURRENCIES, DEFAULT_CATEGORIES, type Account, type TxInput } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const FIELDS: [ColumnKey, string][] = [["date", "Date"], ["description", "Description"], ["debit", "Debit"], ["credit", "Credit"], ["amount", "Amount"], ["balance", "Balance"]];
 type Edit = { include?: boolean; category?: string; merchant?: string };
@@ -90,10 +91,10 @@ export default function ImportPage() {
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label" htmlFor="i-acc">Account</label>
-            <select id="i-acc" className="input" value={accountId} onChange={(e) => { setAccountId(e.target.value); const a = accounts.find((x) => x.id === e.target.value); if (a) setCurrency(a.currency); }}>
-              <option value="">No account</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <Select id="i-acc" className="input" value={accountId} onChange={(e) => { setAccountId(e.target.value); const a = accounts.find((x) => x.id === e.target.value); if (a) setCurrency(a.currency); }}>
+              <option value="">No account</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></div>
           <div><label className="label" htmlFor="i-cur">Statement currency</label>
-            <select id="i-cur" className="input" value={currency} onChange={(e) => setCurrency(e.target.value as TxInput["currency"])}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+            <Select id="i-cur" className="input" value={currency} onChange={(e) => setCurrency(e.target.value as TxInput["currency"])}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select></div>
         </div>
         {error && <p role="alert" className="flex items-center gap-2 text-sm text-danger"><AlertTriangle size={16} /> {error}</p>}
         {kind === "pdf" && rows.length > 0 && <p className="text-xs text-warning">PDF reading is best-effort: debit/credit is inferred from the running balance. Check each row.</p>}
@@ -107,8 +108,8 @@ export default function ImportPage() {
               <input id="i-hr" type="number" min={1} max={Math.min(rows.length, 50)} className="input num" value={headerRow + 1} onChange={(e) => setHeaderRow(Math.max(0, Number(e.target.value) - 1))} /></div>
             {FIELDS.map(([key, name]) => (
               <div key={key}><label className="label" htmlFor={`m-${key}`}>{name}</label>
-                <select id={`m-${key}`} className="input" value={mapping[key] ?? ""} onChange={(e) => setMapping((m) => ({ ...m, [key]: e.target.value === "" ? undefined : Number(e.target.value) }))}>
-                  <option value="">—</option>{header.map((c, i) => <option key={i} value={i}>{label(c, i)}</option>)}</select></div>
+                <Select id={`m-${key}`} className="input" value={mapping[key] ?? ""} onChange={(e) => setMapping((m) => ({ ...m, [key]: e.target.value === "" ? undefined : Number(e.target.value) }))}>
+                  <option value="">—</option>{header.map((c, i) => <option key={i} value={i}>{label(c, i)}</option>)}</Select></div>
             ))}
           </div>
           <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={invert} onChange={(e) => setInvert(e.target.checked)} /> My bank shows spending as positive numbers (flip signs)</label>
@@ -131,8 +132,8 @@ export default function ImportPage() {
                 <div className="min-w-0 space-y-1">
                   <div className="flex gap-2">
                     <input aria-label="Merchant" className="input !min-h-8 !px-2 text-xs" value={input.merchant} placeholder="Merchant" onChange={(e) => patch(c.rowIndex, { merchant: e.target.value })} />
-                    <select aria-label="Category" className="input !min-h-8 !px-2 text-xs sm:max-w-44" value={input.category} onChange={(e) => patch(c.rowIndex, { category: e.target.value })}>
-                      {[...new Set([...DEFAULT_CATEGORIES, input.category])].map((x) => <option key={x}>{x}</option>)}</select>
+                    <Select aria-label="Category" className="input !min-h-8 !px-2 text-xs sm:max-w-44" value={input.category} onChange={(e) => patch(c.rowIndex, { category: e.target.value })}>
+                      {[...new Set([...DEFAULT_CATEGORIES, input.category])].map((x) => <option key={x}>{x}</option>)}</Select>
                   </div>
                   <p className="truncate text-xs text-muted">{new Date(input.date).toLocaleDateString("en-GB")} · {input.notes}
                     {c.duplicate && <span className="ml-2 text-warning">possible duplicate</span>}

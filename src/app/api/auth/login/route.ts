@@ -17,8 +17,10 @@ export async function POST(req: Request) {
     const user = await prisma.user.findUnique({ where: { email } });
     const valid = user && (await bcrypt.compare(password, user.passwordHash));
     if (!user || !valid) return fail("Invalid email or password", 401);
-    await createSession({ id: user.id, name: user.name, email: user.email });
-    return ok({ id: user.id, name: user.name, email: user.email });
+    if (!user.active) return fail("This account is disabled. Contact your administrator.", 403);
+    const session = { id: user.id, name: user.name, email: user.email, role: user.role };
+    await createSession(session);
+    return ok(session);
   } catch (e) {
     return handleError(e);
   }

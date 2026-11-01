@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import type { Session } from "./types";
+import { prisma } from "./db";
+import type { Role, Session } from "./types";
 
 const COOKIE = "et_session";
 const key = () => {
@@ -25,7 +26,9 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, key());
-    return { id: String(payload.id), name: String(payload.name), email: String(payload.email) };
+    // Sessions issued before roles existed have no role and are treated as regular users.
+    const role: Role = payload.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER";
+    return { id: String(payload.id), name: String(payload.name), email: String(payload.email), role };
   } catch {
     return null;
   }
@@ -33,4 +36,12 @@ export async function getSession(): Promise<Session | null> {
 
 export async function destroySession() {
   (await cookies()).delete(COOKIE);
+}
+
+/** For admin-only routes: the cookie is not trusted for the role, so it is re-checked against the database. */
+export async function requireSuperAdmin(): Promise<Session | null> {
+  const s = await getSession();
+  if (!s) return null;
+  const u = await prisma.user.findUnique({ where: { id: s.id }, select: { role: true, active: true } });
+  return u?.active && u.role === "SUPER_ADMIN" ? s : null;
 }

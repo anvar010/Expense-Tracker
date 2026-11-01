@@ -16,8 +16,9 @@ import { nextOccurrence } from "@/lib/insights/recurring";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import type { Account, Budget, Recurring } from "@/lib/types";
+import { Select } from "@/components/select";
 
-const PALETTE = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#14b8a6", "#ec4899", "#64748b"];
+const PALETTE = ["#e11d2e", "#10b981", "#f59e0b", "#8b5cf6", "#fb7185", "#14b8a6", "#ec4899", "#71717a"];
 
 function Stat({ label, children, sub, tone }: { label: string; children: React.ReactNode; sub?: string; tone?: string }) {
   return (
@@ -82,27 +83,27 @@ function DashboardBody() {
         </div>
         <div className="flex gap-2">
           {currencies.length > 1 && (
-            <select aria-label="Currency" className="input !w-auto" value={currency} onChange={(e) => setPicked(e.target.value)}>
+            <Select aria-label="Currency" className="input !w-auto" value={currency} onChange={(e) => setPicked(e.target.value)}>
               {currencies.map((c) => <option key={c}>{c}</option>)}
-            </select>
+            </Select>
           )}
-          <select aria-label="Period" className="input !w-auto" value={period} onChange={(e) => setPeriod(e.target.value as PeriodId)}>
+          <Select aria-label="Period" className="input !w-auto" value={period} onChange={(e) => setPeriod(e.target.value as PeriodId)}>
             {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 
       {txs.length === 0 ? (
         <Stagger className="card grid place-items-center gap-2 p-12 text-center">
-          <Item className="grid size-14 place-items-center rounded-2xl bg-accent/15 text-accent"><Wallet size={26} /></Item>
+          <Item className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary"><Wallet size={26} /></Item>
           <Item><p className="text-lg font-semibold">No transactions yet</p></Item>
           <Item><p className="max-w-sm text-sm text-muted">Press Add in the bar below to record your first expense, or paste a bank message on the Messages page.</p></Item>
         </Stagger>
       ) : (
         <Stagger className="space-y-4">
-          <Item className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#0b1224_0%,#12203d_55%,#0c3b35_100%)] p-6 text-white shadow-[0_24px_60px_-28px_rgb(16_185_129/0.55)] sm:p-8">
-            <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-emerald-400/20 blur-3xl" />
-            <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/4 size-64 rounded-full bg-blue-500/15 blur-3xl" />
+          <Item className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#0a0a0b_0%,#2a060b_55%,#8f0a18_100%)] p-6 text-white shadow-[0_24px_60px_-28px_rgb(217_10_30/0.6)] sm:p-8">
+            <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-red-500/25 blur-3xl" />
+            <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/4 size-64 rounded-full bg-white/10 blur-3xl" />
             <div className="relative flex flex-wrap items-center justify-between gap-6">
               <div className="min-w-0">
                 <p className="text-sm text-white/70">{savings < 0 ? "Overspent" : "Left after spending"}, {periodLabel}</p>
@@ -145,13 +146,13 @@ function DashboardBody() {
                   <AreaChart data={current.byDay.map((d) => ({ day: d.day.slice(5), Expenses: d.expenses.toNumber(), Income: d.income.toNumber() }))}>
                     <defs>
                       <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.35} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
-                      <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e11d2e" stopOpacity={0.35} /><stop offset="100%" stopColor="#e11d2e" stopOpacity={0} /></linearGradient>
                     </defs>
                     <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
                     <YAxis tickLine={false} axisLine={false} fontSize={11} width={40} stroke="#94a3b8" />
                     <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
                     <Area type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={2} fill="url(#gi)" />
-                    <Area type="monotone" dataKey="Expenses" stroke="#3b82f6" strokeWidth={2} fill="url(#ge)" />
+                    <Area type="monotone" dataKey="Expenses" stroke="#e11d2e" strokeWidth={2} fill="url(#ge)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

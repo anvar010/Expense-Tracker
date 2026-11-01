@@ -29,7 +29,8 @@ export const txInputSchema = z.object({
 export type TxInput = z.infer<typeof txInputSchema>;
 export type Tx = TxInput & { id: string };
 
-export type Session = { id: string; name: string; email: string };
+export type Role = "SUPER_ADMIN" | "USER";
+export type Session = { id: string; name: string; email: string; role: Role };
 
 export const ACCOUNT_TYPES = ["BANK", "SAVINGS", "CREDIT_CARD", "CASH", "WALLET"] as const;
 const money = z.string().regex(/^-?\d{1,16}(\.\d{1,2})?$/, "Enter a valid amount");

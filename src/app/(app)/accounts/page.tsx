@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { ACCOUNT_TYPES, CURRENCIES, accountInputSchema, type Account, type AccountInput } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const typeLabel = (t: string) => t.replace("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const blank: AccountInput = { name: "", bankName: "", type: "BANK", currency: "AED", openingBalance: "0", creditLimit: "", maskedReference: "", minPayment: "", active: true };
@@ -35,11 +36,11 @@ function AccountForm({ initial, onSave, onCancel }: { initial?: Account; onSave:
         <div><label className="label" htmlFor="a-name">Name</label><input id="a-name" className="input" value={v.name} onChange={(e) => set("name", e.target.value)} /></div>
         <div><label className="label" htmlFor="a-bank">Bank</label><input id="a-bank" className="input" value={v.bankName} onChange={(e) => set("bankName", e.target.value)} /></div>
         <div><label className="label" htmlFor="a-type">Type</label>
-          <select id="a-type" className="input" value={v.type} onChange={(e) => set("type", e.target.value as AccountInput["type"])}>
-            {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}</select></div>
+          <Select id="a-type" className="input" value={v.type} onChange={(e) => set("type", e.target.value as AccountInput["type"])}>
+            {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}</Select></div>
         <div><label className="label" htmlFor="a-cur">Currency</label>
-          <select id="a-cur" className="input" value={v.currency} onChange={(e) => set("currency", e.target.value as AccountInput["currency"])}>
-            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+          <Select id="a-cur" className="input" value={v.currency} onChange={(e) => set("currency", e.target.value as AccountInput["currency"])}>
+            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select></div>
         <div><label className="label" htmlFor="a-open">{card ? "Amount already owed" : "Opening balance"}</label>
           <input id="a-open" inputMode="decimal" className="input num" value={v.openingBalance} onChange={(e) => set("openingBalance", e.target.value)} /></div>
         <div><label className="label" htmlFor="a-ref">Last 4 digits (optional)</label>

@@ -11,10 +11,16 @@ test.beforeEach(async ({ page }) => {
   await page.reload();
 });
 
+// The app's dropdowns are custom comboboxes: open the one with this label, then click the option by its visible text.
+async function pick(page: import("@playwright/test").Page, label: string, option: string, exact = false) {
+  await page.getByRole("combobox", { name: label, exact }).click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+}
+
 async function addTx(page: import("@playwright/test").Page, amount: string, merchant: string, category = "Food & Dining") {
   await page.getByRole("button", { name: "Add transaction" }).first().click();
   await page.getByLabel("Amount").fill(amount);
-  await page.getByLabel("Category").selectOption(category);
+  await pick(page, "Category", category);
   await page.getByLabel("Merchant").fill(merchant);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
@@ -42,7 +48,7 @@ test("message analyzer parses sample 1, saves, and OTPs are ignored", async ({ p
   await page.goto("/messages");
   await page.getByRole("button", { name: "Sample 1" }).click();
   await expect(page.locator("#d-merchant")).toHaveValue("Talabat");
-  await expect(page.locator("#d-cat")).toHaveValue("Food & Dining");
+  await expect(page.locator("#d-cat")).toHaveText("Food & Dining");
   await expect(page.locator("#d-amount")).toHaveValue("45.00");
   await expect(page.getByText("Looks good")).toBeVisible();
   await page.getByRole("button", { name: "Save transaction" }).click();
@@ -92,13 +98,13 @@ test("credit card full flow: purchase raises owed, payment clears it, not double
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Add account" }).click();
   await page.getByLabel("Name").fill("Visa");
-  await page.getByLabel("Type").selectOption("CREDIT_CARD");
+  await pick(page, "Type", "Credit card");
   await page.getByLabel("Credit limit").fill("5000");
   await page.getByRole("button", { name: "Save" }).click();
 
   await page.getByRole("button", { name: "Add transaction" }).first().click();
   await page.getByLabel("Amount").fill("300");
-  await page.getByLabel("Account", { exact: true }).selectOption({ label: "Visa" });
+  await pick(page, "Account", "Visa", true);
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto("/accounts");
   const visa = page.locator("li", { hasText: "Visa" });
@@ -106,10 +112,11 @@ test("credit card full flow: purchase raises owed, payment clears it, not double
   await expect(visa.getByText("Utilization 6%")).toBeVisible();
 
   await page.getByRole("button", { name: "Add transaction" }).first().click();
-  await page.getByLabel("Type").selectOption("CARD_PAYMENT");
+  await page.getByRole("button", { name: "Transfer, card payment or other" }).click();
+  await pick(page, "Type", "Card payment");
   await page.getByLabel("Amount").fill("300");
-  await page.getByLabel("From account").selectOption({ label: "Bank" });
-  await page.getByLabel("Card paid").selectOption({ label: "Visa" });
+  await pick(page, "From account", "Bank");
+  await pick(page, "Card paid", "Visa");
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto("/accounts");
   await expect(page.locator("li", { hasText: "Visa" }).getByText("AED 0.00").first()).toBeVisible();
@@ -185,27 +192,4 @@ test("mobile layout: bottom nav and floating add button", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add transaction" }).last()).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
-});
-
-test("first open offers phone setup once, and remembers the choice", async ({ browser }) => {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  await page.goto("/dashboard");
-  const dialog = page.getByRole("dialog", { name: "Read bank messages automatically" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("can't read texts itself");
-  await expect(dialog.getByRole("link", { name: "Sign in to set up" })).toBeVisible(); // guests are sent to sign in first
-  await dialog.getByRole("button", { name: "Maybe later" }).click();
-  await expect(dialog).toBeHidden();
-  await page.reload();
-  await page.waitForTimeout(600);
-  await expect(page.getByRole("dialog", { name: "Read bank messages automatically" })).toHaveCount(0);
-  await ctx.close();
-});
-
-test("messages page offers to connect a phone", async ({ page }) => {
-  await page.goto("/messages");
-  await expect(page.getByText("Read your bank messages automatically")).toBeVisible();
-  await expect(page.getByText("A website can't read your text messages")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sign in to set up" })).toBeVisible();
 });

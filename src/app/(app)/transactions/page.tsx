@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { DEFAULT_CATEGORIES, TX_TYPES, type Account, type Tx } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const csvCell = (v: string) => {
   // Neutralise spreadsheet formula injection, then quote.
@@ -56,15 +57,15 @@ export default function TransactionsPage() {
 
       <div className="grid gap-2 sm:grid-cols-4">
         <input aria-label="Search" placeholder="Search merchant, notes…" className="input" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select aria-label="Category" className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <Select aria-label="Category" className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">All categories</option>{DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-        </select>
-        <select aria-label="Account" className="input" value={account} onChange={(e) => setAccount(e.target.value)}>
+        </Select>
+        <Select aria-label="Account" className="input" value={account} onChange={(e) => setAccount(e.target.value)}>
           <option value="">All accounts</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-        <select aria-label="Type" className="input" value={type} onChange={(e) => setType(e.target.value)}>
+        </Select>
+        <Select aria-label="Type" className="input" value={type} onChange={(e) => setType(e.target.value)}>
           <option value="">All types</option>{TX_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ").toLowerCase()}</option>)}
-        </select>
+        </Select>
       </div>
 
       {rows.length === 0 ? (

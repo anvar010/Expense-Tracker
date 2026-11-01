@@ -6,9 +6,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { CURRENCIES, DEFAULT_CATEGORIES, TX_TYPES, type Account, type Tx } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const formSchema = z.object({
   type: z.enum(TX_TYPES),
@@ -37,7 +39,7 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
   const { add, update } = useData();
   const { items: accounts } = useCollection<Account>("accounts");
   const [error, setError] = useState("");
-  const { register, watch, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
+  const { register, watch, setValue, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
     resolver: zodResolver(formSchema),
     defaultValues: editing
       ? { ...editing, accountId: editing.accountId ?? "", toAccountId: editing.toAccountId ?? "", date: new Date(editing.date).toLocaleDateString("en-CA") }
@@ -50,6 +52,8 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
     return () => window.removeEventListener("keydown", esc);
   }, [onClose]);
 
+  const type = watch("type");
+  const isDebitCredit = type === "EXPENSE" || type === "INCOME";
   const isMove = ["TRANSFER", "CARD_PAYMENT"].includes(watch("type"));
 
   const submit = handleSubmit(async (f) => {
@@ -85,13 +89,34 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
           <button type="button" onClick={onClose} aria-label="Close" className="btn-ghost size-10 !p-0"><X size={18} /></button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        {isDebitCredit ? (
+          <div className="space-y-1">
+            <div role="radiogroup" aria-label="Debit or credit" className="relative grid grid-cols-2 rounded-xl border border-border bg-surface-2 p-1">
+              <motion.span
+                aria-hidden className={cn("absolute inset-y-1 w-[calc(50%-4px)] rounded-lg", type === "EXPENSE" ? "bg-danger/20" : "bg-accent/20")}
+                animate={{ left: type === "EXPENSE" ? 4 : "50%" }} transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              />
+              {([["EXPENSE", "Debit"], ["INCOME", "Credit"]] as const).map(([value, text]) => (
+                <button
+                  key={value} type="button" role="radio" aria-checked={type === value}
+                  onClick={() => setValue("type", value, { shouldDirty: true })}
+                  className={cn("relative z-10 min-h-10 rounded-lg text-sm font-medium", type === value ? "text-foreground" : "text-muted")}
+                >{text}</button>
+              ))}
+            </div>
+            <button type="button" className="text-xs text-muted underline" onClick={() => setValue("type", "TRANSFER", { shouldDirty: true })}>Transfer, card payment or other</button>
+          </div>
+        ) : (
           <div>
             <label className="label" htmlFor="type">Type</label>
-            <select id="type" className="input" {...register("type")}>
-              {TX_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
-            </select>
+            <Select id="type" className="input" {...register("type")}>
+              {TX_TYPES.filter((t) => t !== "EXPENSE" && t !== "INCOME").map((t) => <option key={t} value={t}>{label(t)}</option>)}
+            </Select>
+            <button type="button" className="mt-1 text-xs text-muted underline" onClick={() => setValue("type", "EXPENSE", { shouldDirty: true })}>Back to debit / credit</button>
           </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label" htmlFor="date">Date</label>
             <input id="date" type="date" className="input" {...register("date")} />
@@ -102,30 +127,24 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
             <input id="amount" inputMode="decimal" autoComplete="off" placeholder="0.00" className="input num" {...register("amount")} />
             {errors.amount && <p className="mt-1 text-xs text-danger">{errors.amount.message}</p>}
           </div>
-          <div>
-            <label className="label" htmlFor="currency">Currency</label>
-            <select id="currency" className="input" {...register("currency")}>
-              {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
         </div>
 
         {accounts.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="accountId">{isMove ? "From account" : "Account"}</label>
-              <select id="accountId" className="input" {...register("accountId")}>
+              <Select id="accountId" className="input" {...register("accountId")}>
                 <option value="">{isMove ? "Choose…" : "None"}</option>
                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              </Select>
             </div>
             {isMove && (
               <div>
                 <label className="label" htmlFor="toAccountId">{watch("type") === "CARD_PAYMENT" ? "Card paid" : "To account"}</label>
-                <select id="toAccountId" className="input" {...register("toAccountId")}>
+                <Select id="toAccountId" className="input" {...register("toAccountId")}>
                   <option value="">Choose…</option>
                   {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                </Select>
                 {errors.toAccountId && <p className="mt-1 text-xs text-danger">{errors.toAccountId.message}</p>}
               </div>
             )}
@@ -133,9 +152,9 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
         )}
         <div>
           <label className="label" htmlFor="category">Category</label>
-          <select id="category" className="input" {...register("category")}>
+          <Select id="category" className="input" {...register("category")}>
             {DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="label" htmlFor="merchant">Merchant</label>

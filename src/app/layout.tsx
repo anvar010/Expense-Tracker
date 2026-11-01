@@ -14,10 +14,10 @@ export const metadata: Metadata = {
   icons: { apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "Spendly", statusBarStyle: "black-translucent" },
 };
-export const viewport: Viewport = { themeColor: "#0f172a" };
+export const viewport: Viewport = { themeColor: "#ffffff" };
 
 // Applies the saved theme before paint to avoid a flash.
-const themeScript = `try{var t=localStorage.getItem('et:theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`;
+const themeScript = `try{var t=localStorage.getItem('et:theme');if(t==='dark')document.documentElement.classList.add('dark')}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

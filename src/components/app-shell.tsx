@@ -1,14 +1,13 @@
 "use client";
 
-import { CloudOff, FileUp, Landmark, LayoutDashboard, LogIn, LogOut, MessageSquareText, Moon, PiggyBank, Receipt, Smartphone, Sparkles, Sun, Wallet } from "lucide-react";
+import { CloudOff, FileUp, Landmark, LayoutDashboard, LogIn, LogOut, MessageSquareText, Moon, PiggyBank, Receipt, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { BudgetAlerts } from "./budget-alerts";
 import { Dock, type DockItem } from "./dock";
-import { FirstRunPrompt } from "./first-run";
 import { NotificationBell } from "./notification-bell";
 import { InstallButton } from "./pwa";
 import { TxDialog } from "./tx-dialog";
@@ -24,8 +23,8 @@ const MORE: DockItem[] = [
   { href: "/messages", label: "Messages", icon: MessageSquareText },
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/import", label: "Import", icon: FileUp },
-  { href: "/devices", label: "Devices", icon: Smartphone },
 ];
+const ADMIN_ITEM: DockItem = { href: "/admin", label: "Users", icon: ShieldCheck };
 
 function StatusPill() {
   const { mode, session, sync, pending } = useData();
@@ -42,7 +41,7 @@ function StatusPill() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { mode, signOut } = useData();
+  const { mode, session, signOut } = useData();
   const [adding, setAdding] = useState(false);
   const [dark, setDark] = useState(false);
   useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
@@ -60,7 +59,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-2 text-base font-semibold tracking-tight">
-              <span className="grid size-8 place-items-center rounded-xl bg-primary text-primary-fg"><Wallet size={17} /></span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/tenzo-icon.png" alt="Tenzo" width={32} height={32} className="size-8 rounded-xl bg-white object-contain p-0.5" />
               <span className="hidden sm:inline">Spendly</span>
             </Link>
             <StatusPill />
@@ -85,9 +85,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         {mode === "loading" ? <p className="text-sm text-muted">Loading…</p> : children}
       </main>
 
-      <Dock primary={PRIMARY} more={MORE} onAdd={() => setAdding(true)} />
+      {/* The dock reads the URL, which is unknown while a dynamic route (e.g. /admin/[id]) is prerendered. */}
+      <Suspense fallback={null}>
+        <Dock primary={PRIMARY} more={session?.role === "SUPER_ADMIN" ? [...MORE, ADMIN_ITEM] : MORE} onAdd={() => setAdding(true)} />
+      </Suspense>
       <BudgetAlerts />
-      <FirstRunPrompt />
       <TxDialog open={adding} onClose={() => setAdding(false)} />
     </div>
   );

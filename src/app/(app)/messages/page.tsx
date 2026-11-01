@@ -1,19 +1,19 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { findDuplicate, parseMessage, type ParsedMessage } from "@/lib/parser/parse";
 import { normalizeMerchant } from "@/lib/parser/merchants";
 import type { CategoryRule } from "@/lib/parser/categorize";
 import { useData } from "@/lib/store/data-provider";
 import { newId } from "@/lib/store/storage";
-import { PhoneConnectCard } from "@/components/phone-connect-card";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import { CURRENCIES, DEFAULT_CATEGORIES, TX_TYPES, type Account } from "@/lib/types";
+import { Select } from "@/components/select";
 
-type Queued = { id: string; text: string; reason: string; addedAt: string; serverId?: string };
+type Queued = { id: string; text: string; reason: string; addedAt: string };
 
 const SAMPLES = [
   "Your card ending 1234 was debited AED 45.00 at TALABAT on 08/10/2026. Available balance AED 2,450.00.",
@@ -34,21 +34,6 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState<ParsedMessage | null>(null);
   const [remember, setRemember] = useState(true);
   const [saved, setSaved] = useState("");
-  const [serverQueue, setServerQueue] = useState<Queued[]>([]);
-  const [activeServerId, setActiveServerId] = useState<string>();
-
-  // Messages parked by the Android app / Shortcuts that weren't confident enough to auto-save.
-  useEffect(() => {
-    if (mode !== "user") return setServerQueue([]);
-    fetch("/api/review").then((r) => (r.ok ? r.json() : null)).then((j) => {
-      if (j) setServerQueue((j.data as { id: string; text: string; receivedAt: string }[]).map((m) => ({ id: m.id, serverId: m.id, text: m.text, reason: "Sent from your phone", addedAt: m.receivedAt })));
-    }).catch(() => {});
-  }, [mode]);
-
-  const resolveServer = async (id: string, outcome: "confirmed" | "rejected") => {
-    await fetch(`/api/review/${id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ outcome }) }).catch(() => {});
-    setServerQueue((q) => q.filter((x) => x.serverId !== id));
-  };
 
   const duplicate = useMemo(
     () => (draft?.isTransaction && draft.amount && draft.currency ? findDuplicate({ amount: draft.amount, currency: draft.currency, date: draft.date, merchant: draft.merchant }, txs) : undefined),
@@ -84,7 +69,6 @@ export default function MessagesPage() {
       setRules((r) => [...r.filter((x) => !(x.source === "correction" && x.pattern === key)),
         { id: newId(), pattern: key, category: draft.category, source: "correction", enabled: true }]);
     }
-    if (activeServerId) { void resolveServer(activeServerId, "confirmed"); setActiveServerId(undefined); }
     setSaved(`Saved ${draft.merchant || draft.category}.`);
     setText("");
     setDraft(null);
@@ -92,7 +76,6 @@ export default function MessagesPage() {
 
   function sendToReview() {
     if (!text.trim() || draft?.reason?.includes("OTP")) return; // never keep anything with security codes
-    if (activeServerId) { setActiveServerId(undefined); setText(""); setDraft(null); return; } // already queued on the server
     setQueue((q) => [{ id: newId(), text: redact(text.trim()), reason: draft?.reason ?? "Low confidence", addedAt: new Date().toISOString() }, ...q]);
     setText("");
     setDraft(null);
@@ -106,8 +89,6 @@ export default function MessagesPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Message analyzer</h1>
         <p className="mt-1 text-sm text-muted">Paste a bank SMS or email alert. Nothing is saved until you confirm. Messages containing OTPs are ignored.</p>
       </div>
-
-      <PhoneConnectCard />
 
       <section className="card space-y-3 p-4">
         <label className="label" htmlFor="msg">Bank message</label>
@@ -138,18 +119,18 @@ export default function MessagesPage() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div><label className="label" htmlFor="d-type">Type</label>
-              <select id="d-type" className="input" value={draft.type} onChange={(e) => patch({ type: e.target.value as ParsedMessage["type"] })}>
-                {TX_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ").toLowerCase()}</option>)}</select></div>
+              <Select id="d-type" className="input" value={draft.type} onChange={(e) => patch({ type: e.target.value as ParsedMessage["type"] })}>
+                {TX_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ").toLowerCase()}</option>)}</Select></div>
             <div><label className="label" htmlFor="d-amount">Amount</label>
               <input id="d-amount" className="input num" value={draft.amount} onChange={(e) => patch({ amount: e.target.value })} /></div>
             <div><label className="label" htmlFor="d-cur">Currency</label>
-              <select id="d-cur" className="input" value={draft.currency} onChange={(e) => patch({ currency: e.target.value as ParsedMessage["currency"] })}>
-                {CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+              <Select id="d-cur" className="input" value={draft.currency} onChange={(e) => patch({ currency: e.target.value as ParsedMessage["currency"] })}>
+                {CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select></div>
             <div><label className="label" htmlFor="d-merchant">Merchant</label>
               <input id="d-merchant" className="input" value={draft.merchant} onChange={(e) => patch({ merchant: e.target.value })} /></div>
             <div><label className="label" htmlFor="d-cat">Category</label>
-              <select id="d-cat" className="input" value={draft.category} onChange={(e) => patch({ category: e.target.value })}>
-                {[...new Set([...DEFAULT_CATEGORIES, draft.category])].map((c) => <option key={c}>{c}</option>)}</select></div>
+              <Select id="d-cat" className="input" value={draft.category} onChange={(e) => patch({ category: e.target.value })}>
+                {[...new Set([...DEFAULT_CATEGORIES, draft.category])].map((c) => <option key={c}>{c}</option>)}</Select></div>
             <div><label className="label" htmlFor="d-date">Date{draft.dateAssumed && " (assumed)"}</label>
               <input id="d-date" type="date" className="input" value={new Date(draft.date).toLocaleDateString("en-CA")}
                 onChange={(e) => e.target.value && patch({ date: new Date(`${e.target.value}T12:00:00`).toISOString(), dateAssumed: false })} /></div>
@@ -181,16 +162,16 @@ export default function MessagesPage() {
       )}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Review queue ({queue.length + serverQueue.length})</h2>
-        {queue.length + serverQueue.length === 0 ? <p className="text-sm text-muted">Messages that can’t be parsed confidently appear here instead of creating wrong transactions.</p> : (
+        <h2 className="text-sm font-medium">Review queue ({queue.length})</h2>
+        {queue.length === 0 ? <p className="text-sm text-muted">Messages that can’t be parsed confidently appear here instead of creating wrong transactions.</p> : (
           <ul className="card divide-y divide-border">
-            {[...serverQueue, ...queue].map((q) => (
+            {queue.map((q) => (
               <li key={q.id} className="flex items-start gap-2 p-3">
-                <button className="min-w-0 flex-1 text-left" onClick={() => { analyze(q.text); setActiveServerId(q.serverId); if (!q.serverId) setQueue((x) => x.filter((i) => i.id !== q.id)); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                <button className="min-w-0 flex-1 text-left" onClick={() => { analyze(q.text); setQueue((x) => x.filter((i) => i.id !== q.id)); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                   <span className="block truncate text-sm">{q.text}</span>
                   <span className="text-xs text-muted">{q.reason} · tap to review</span>
                 </button>
-                <button aria-label="Discard" className="btn-ghost size-10 shrink-0 !p-0 text-muted hover:text-danger" onClick={() => (q.serverId ? resolveServer(q.serverId, "rejected") : setQueue((x) => x.filter((i) => i.id !== q.id)))}><Trash2 size={16} /></button>
+                <button aria-label="Discard" className="btn-ghost size-10 shrink-0 !p-0 text-muted hover:text-danger" onClick={() => setQueue((x) => x.filter((i) => i.id !== q.id))}><Trash2 size={16} /></button>
               </li>
             ))}
           </ul>

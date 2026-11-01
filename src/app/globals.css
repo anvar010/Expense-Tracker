@@ -3,34 +3,35 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f5f7fb;
+  --background: #f7f5f5;
   --surface: #ffffff;
-  --surface-2: #eef2f7;
-  --foreground: #0f172a;
-  --muted: #5d6b82;
-  --border: #e3e8f0;
-  --primary: #0f172a;
+  --surface-2: #f1eeee;
+  --foreground: #0d0d0e;
+  --muted: #6b6566;
+  --border: #e7e2e2;
+  --primary: #d90a1e;
   --primary-fg: #ffffff;
-  --accent: #10b981;
-  --secondary: #3b82f6;
-  --danger: #ef4444;
+  --accent: #16a34a;
+  --secondary: #d90a1e;
+  --danger: #dc2626;
   --warning: #f59e0b;
-  --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 30px -14px rgb(30 41 82 / 0.16);
-  --ambient-a: rgb(16 185 129 / 0.10);
-  --ambient-b: rgb(59 130 246 / 0.09);
+  --shadow: 0 1px 2px rgb(13 13 14 / 0.04), 0 10px 30px -14px rgb(60 10 14 / 0.18);
+  --ambient-a: rgb(217 10 30 / 0.04);
+  --ambient-b: rgb(13 13 14 / 0.03);
 }
 .dark {
-  --background: #0a1020;
-  --surface: #111a2e;
-  --surface-2: #18243d;
-  --foreground: #e8eef8;
-  --muted: #92a1ba;
-  --border: #223152;
-  --primary: #e8eef8;
-  --primary-fg: #0f172a;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 12px 32px -14px rgb(0 0 0 / 0.6);
-  --ambient-a: rgb(16 185 129 / 0.12);
-  --ambient-b: rgb(59 130 246 / 0.12);
+  --background: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1e1e21;
+  --foreground: #f5f3f3;
+  --muted: #a39d9e;
+  --border: #2b2b2f;
+  --primary: #ec1c30;
+  --primary-fg: #ffffff;
+  --secondary: #ff4457;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 32px -14px rgb(0 0 0 / 0.7);
+  --ambient-a: rgb(236 28 48 / 0.14);
+  --ambient-b: rgb(255 255 255 / 0.04);
 }
 
 @theme inline {

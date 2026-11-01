@@ -11,6 +11,16 @@ const schema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").max(200),
 });
 
+// Self-registration exists only to create the very first account, which becomes the super admin.
+// After that, the super admin adds everyone else.
+export async function GET() {
+  try {
+    return ok({ registrationOpen: (await prisma.user.count()) === 0 });
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
 export async function POST(req: Request) {
   // Per-address throttle: slows password guessing and mass sign-ups once the app is public.
   const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
@@ -18,12 +28,13 @@ export async function POST(req: Request) {
   if (!rl.allowed) return fail("Too many attempts. Try again in a minute.", 429, { retryAfter: rl.retryAfter });
   try {
     const { name, email, password } = schema.parse(await req.json());
-    if (await prisma.user.findUnique({ where: { email } })) return fail("Email already registered", 409);
+    if ((await prisma.user.count()) > 0) return fail("Sign-up is closed. Ask your administrator to create your account.", 403);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
+      data: { name, email, passwordHash: await bcrypt.hash(password, 12), role: "SUPER_ADMIN" },
     });
-    await createSession({ id: user.id, name, email });
-    return ok({ id: user.id, name, email }, 201);
+    const session = { id: user.id, name, email, role: user.role };
+    await createSession(session);
+    return ok(session, 201);
   } catch (e) {
     return handleError(e);
   }
