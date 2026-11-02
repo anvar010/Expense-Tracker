@@ -63,7 +63,7 @@ function AccountForm({ initial, onSave, onCancel }: { initial?: Account; onSave:
 export default function AccountsPage() {
   const { txs, add, mode } = useData();
   const confirm = useConfirm();
-  const { items, offline, loaded, create, update, remove } = useCollection<Account>("accounts");
+  const { items, loaded, create, update, remove } = useCollection<Account>("accounts");
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [reconciling, setReconciling] = useState<string | null>(null);
   const [actual, setActual] = useState("");
@@ -90,9 +90,8 @@ export default function AccountsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">Accounts</h1>
-        <button className="btn-primary" onClick={() => setEditing("new")} disabled={offline}><Plus size={16} /> Add account</button>
+        <button className="btn-primary" onClick={() => setEditing("new")}><Plus size={16} /> Add account</button>
       </div>
-      {offline && <p className="rounded-xl bg-warning/10 p-3 text-sm text-warning">Showing saved data. You can change accounts again once the database is reachable.</p>}
       {msg && <p role="status" className="text-sm text-accent">{msg}</p>}
 
       {editing && (
@@ -114,8 +113,8 @@ export default function AccountsPage() {
                     <p className="truncate text-xs text-muted">{[a.bankName, typeLabel(a.type), a.maskedReference && `•••• ${a.maskedReference}`].filter(Boolean).join(" · ")}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button aria-label="Edit account" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(a)} disabled={offline}><Pencil size={15} /></button>
-                    <button aria-label="Delete account" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={offline}
+                    <button aria-label="Edit account" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(a)}><Pencil size={15} /></button>
+                    <button aria-label="Delete account" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger"
                       onClick={async () => { if (await confirm({ title: `Delete ${a.name}?`, message: "Its transactions are kept but no longer linked to this account." })) await remove(a.id); }}><Trash2 size={15} /></button>
                   </div>
                 </div>

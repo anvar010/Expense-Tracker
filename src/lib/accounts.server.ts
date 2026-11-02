@@ -1,5 +1,5 @@
 import { Prisma, type Account as Row } from "@prisma/client";
-import { prisma } from "./db";
+import { isDuplicate, prisma } from "./db";
 import type { Account, AccountInput } from "./types";
 
 const dec = (v: string) => (v === "" ? null : new Prisma.Decimal(v));
@@ -19,7 +19,15 @@ const data = (i: AccountInput) => ({
 
 export const accountsRepo = {
   list: async (userId: string) => (await prisma.account.findMany({ where: { userId }, orderBy: { createdAt: "asc" } })).map(toDto),
-  create: async (userId: string, i: AccountInput) => toDto(await prisma.account.create({ data: { userId, ...data(i) } })),
+  create: async (userId: string, i: AccountInput, id?: string) => {
+    try {
+      return toDto(await prisma.account.create({ data: { id, userId, ...data(i) } }));
+    } catch (e) {
+      const again = id && isDuplicate(e) ? await prisma.account.findFirst({ where: { id, userId } }) : null;
+      if (again) return toDto(again);
+      throw e;
+    }
+  },
   update: async (userId: string, id: string, i: AccountInput) => {
     const { count } = await prisma.account.updateMany({ where: { id, userId }, data: data(i) });
     return count ? toDto((await prisma.account.findUniqueOrThrow({ where: { id } }))) : null;

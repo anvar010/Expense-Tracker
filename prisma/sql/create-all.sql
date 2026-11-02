@@ -174,6 +174,9 @@ CREATE TABLE `wallet_keys` (
     `key_hash` VARCHAR(64) NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `last_used_at` DATETIME(3) NULL,
+    `last_attempt_at` DATETIME(3) NULL,
+    `last_status` VARCHAR(200) NULL,
+    `last_body` VARCHAR(400) NULL,
 
     UNIQUE INDEX `wallet_keys_user_id_key`(`user_id`),
     UNIQUE INDEX `wallet_keys_key_hash_key`(`key_hash`),

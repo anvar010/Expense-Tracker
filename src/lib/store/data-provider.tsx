@@ -2,16 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { opTarget, readOutbox, type Op, type OpBody } from "./outbox";
 import { COLLECTION_CACHE_KEYS, KEYS, ls, newId, resetCollectionFreshness } from "./storage";
 import { newestFirst } from "@/lib/tx-order";
 import type { Session, Tx, TxInput } from "@/lib/types";
-
-type OpBody =
-  | { kind: "create"; tempId: string; input: TxInput }
-  | { kind: "update"; id: string; input: TxInput }
-  | { kind: "delete"; id: string };
-/** A queued change. opId identifies it so it can be found again while a newer change is queued behind it. */
-type Op = OpBody & { opId: string };
 
 export type Mode = "loading" | "guest" | "user";
 export type SyncState = "synced" | "offline" | "syncing";
@@ -28,6 +22,8 @@ type Ctx = {
   update: (id: string, input: TxInput) => Promise<void>;
   remove: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Queue a change to accounts, budgets or recurring items; it shows on screen at once and is sent when possible. */
+  queueChange: (body: OpBody) => void;
   importGuest: () => Promise<void>;
   signedIn: (s: Session) => Promise<void>;
   signOut: () => Promise<void>;
@@ -60,15 +56,6 @@ const toInput = (t: Tx): TxInput => ({
   amount: t.amount, currency: t.currency, type: t.type, category: t.category,
   merchant: t.merchant, date: t.date, notes: t.notes, source: t.source,
 });
-
-/** The queue, oldest first. Entries saved by an older version have no opId yet, so they get one. */
-function readOutbox(): Op[] {
-  const raw = ls.read<(OpBody & { opId?: string })[]>(KEYS.outbox, []);
-  let fixed = false;
-  const ops = raw.map((o) => (o.opId ? o : (fixed = true, { ...o, opId: newId() }))) as Op[];
-  if (fixed) ls.write(KEYS.outbox, ops);
-  return ops;
-}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
@@ -115,25 +102,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (flushing.current || !readOutbox().length) return;
     flushing.current = true;
     setSync("syncing");
-    const idMap = ls.read<Record<string, string>>(KEYS.idmap, {});
-    const real = (id: string) => idMap[id] ?? id;
+    const idMap = ls.read<Record<string, string>>(KEYS.idmap, {}); // transactions only: temp id -> server id
+    const real = (op: Op) => (op.kind === "create" ? op.tempId : idMap[op.id] ?? op.id);
     let blocked = false;
     try {
       for (;;) {
         const op = readOutbox()[0];
         if (!op) break;
-        let created: Tx | undefined;
+        const isTx = op.entity === "transactions";
+        let createdId: string | undefined;
         try {
           if (op.kind === "create") {
-            created = await api<Tx>("/api/transactions", { method: "POST", body: JSON.stringify({ ...op.input, idempotencyKey: op.tempId }) });
-            idMap[op.tempId] = created.id;
-            ls.write(KEYS.idmap, idMap);
-            const saved = created;
-            commit(txsRef.current.map((t) => (t.id === op.tempId ? saved : t)), KEYS.cache); // swap in the server's version
+            if (isTx) {
+              const created = await api<Tx>("/api/transactions", { method: "POST", body: JSON.stringify({ ...(op.input as TxInput), idempotencyKey: op.tempId }) });
+              idMap[op.tempId] = created.id;
+              ls.write(KEYS.idmap, idMap);
+              createdId = created.id;
+              commit(txsRef.current.map((t) => (t.id === op.tempId ? created : t)), KEYS.cache); // swap in the server's version
+            } else {
+              // The id chosen on this device is the id on the server, so a retried create can't make a second copy.
+              await api(`/api/${op.entity}`, { method: "POST", body: JSON.stringify({ ...(op.input as object), id: op.tempId }) });
+              createdId = op.tempId;
+            }
           } else if (op.kind === "update") {
-            await api(`/api/transactions/${real(op.id)}`, { method: "PUT", body: JSON.stringify(op.input) });
+            await api(`/api/${op.entity}/${real(op)}`, { method: "PUT", body: JSON.stringify(op.input) });
           } else {
-            await api(`/api/transactions/${real(op.id)}`, { method: "DELETE" });
+            await api(`/api/${op.entity}/${real(op)}`, { method: "DELETE" });
           }
         } catch (e) {
           if (e instanceof Unreachable) { blocked = true; break; }
@@ -143,14 +137,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const cur = readOutbox();
         const at = cur.findIndex((o) => o.opId === op.opId);
         const next = cur.filter((o) => o.opId !== op.opId);
-        if (op.kind === "create" && created) {
+        if (op.kind === "create" && createdId) {
           const now = at >= 0 ? cur[at] : undefined;
-          if (!now) next.unshift({ kind: "delete", id: created.id, opId: newId() }); // deleted while sending
+          if (!now) next.unshift({ kind: "delete", entity: op.entity, id: createdId, opId: newId() }); // deleted while sending
           else if (now.kind === "create" && JSON.stringify(now.input) !== JSON.stringify(op.input)) {
-            next.splice(at, 0, { kind: "update", id: created.id, input: now.input, opId: newId() }); // edited while sending
+            next.splice(at, 0, { kind: "update", entity: op.entity, id: createdId, input: now.input, opId: newId() }); // edited while sending
           }
         }
         writeOutbox(next);
+        // Lists of accounts/budgets/recurring re-read once their last waiting change is on the server.
+        if (!isTx && !next.some((o) => o.entity === op.entity)) window.dispatchEvent(new CustomEvent("et:collection-changed", { detail: op.entity }));
       }
     } finally {
       flushing.current = false;
@@ -168,7 +164,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (epoch.current !== started) return; // something changed here while this was loading; the next refresh catches up
       // Keep unsynced local creates visible until they reach the server.
       const outbox = readOutbox();
-      if (outbox.length) {
+      if (outbox.some((o) => o.entity === "transactions")) {
         setAll(ls.read<Tx[]>(KEYS.cache, list));
         setPending(outbox.length);
         setSync("offline");
@@ -227,11 +223,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [mode, sync, loadRemote]);
 
+  /** Adds changes to the queue. An edit or delete of something that hasn't been sent yet is folded into its create. */
   const queue = (...bodies: OpBody[]) => {
-    writeOutbox([...readOutbox(), ...bodies.map((b) => ({ ...b, opId: newId() }) as Op)]);
+    let ops = readOutbox();
+    for (const body of bodies) {
+      const target = body.kind === "create" ? body.tempId : body.id;
+      const pendingCreate = ops.find((o) => o.kind === "create" && o.entity === body.entity && o.tempId === target);
+      if (body.kind === "update" && pendingCreate && pendingCreate.kind === "create") { pendingCreate.input = body.input; continue; }
+      if (body.kind === "delete" && pendingCreate) { ops = ops.filter((o) => !(o.entity === body.entity && opTarget(o) === target)); continue; }
+      ops = [...ops, { ...body, opId: newId() } as Op];
+    }
+    writeOutbox(ops);
     // Ask the browser to wake us for a retry when connectivity returns (Chromium; harmless elsewhere).
     navigator.serviceWorker?.ready.then((r) => (r as unknown as { sync?: { register(t: string): Promise<void> } }).sync?.register("et-sync")).catch(() => {});
   };
+
+  const queueChange = useCallback((body: OpBody) => { queue(body); void flush(); }, [flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Changes show up instantly and are saved in the background (see flush), so nothing waits on the network.
   const add = useCallback(async (input: TxInput) => {
@@ -244,7 +251,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     const tempId = newId();
     commit([{ ...entry, id: tempId }, ...txsRef.current].sort(newestFirst), KEYS.cache);
-    queue({ kind: "create", tempId, input });
+    queue({ kind: "create", entity: "transactions", tempId, input });
     void flush();
   }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -259,7 +266,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
     commit(merged, KEYS.cache);
-    queue(...created.map((t, i): OpBody => ({ kind: "create", tempId: t.id, input: inputs[i] })));
+    queue(...created.map((t, i): OpBody => ({ kind: "create", entity: "transactions", tempId: t.id, input: inputs[i] })));
     void flush();
   }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -267,14 +274,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const next = txsRef.current.map((t) => (t.id === id ? { ...t, ...input, id } : t));
     if (mode === "guest") return commit(next, KEYS.guest);
     commit(next, KEYS.cache);
-    const outbox = readOutbox();
-    const pendingCreate = outbox.find((o) => o.kind === "create" && o.tempId === id);
-    if (pendingCreate && pendingCreate.kind === "create") {
-      pendingCreate.input = input; // still unsynced: just rewrite the create
-      writeOutbox(outbox);
-    } else queue({ kind: "update", id, input });
+    queue({ kind: "update", entity: "transactions", id, input });
     void flush();
-  }, [mode, commit, flush, writeOutbox]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const remove = useCallback(async (id: string) => {
     const next = txsRef.current.filter((t) => t.id !== id);
@@ -284,16 +286,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
     commit(next, KEYS.cache);
-    const outbox = readOutbox();
-    if (outbox.some((o) => o.kind === "create" && o.tempId === id)) {
-      writeOutbox(outbox.filter((o) => !(o.kind === "create" && o.tempId === id)));
-    } else queue({ kind: "delete", id });
+    queue({ kind: "delete", entity: "transactions", id });
     void flush();
-  }, [mode, commit, flush, writeOutbox]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const importGuest = useCallback(async () => {
     const guest = ls.read<Tx[]>(KEYS.guest, []);
-    queue(...guest.map((g): OpBody => ({ kind: "create", tempId: g.id, input: toInput(g) })));
+    queue(...guest.map((g): OpBody => ({ kind: "create", entity: "transactions", tempId: g.id, input: toInput(g) })));
     ls.remove(KEYS.guest);
     setGuestCount(0);
     await loadRemote();
@@ -316,8 +315,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => ({
     mode, session, txs, sync, pending, guestCount,
-    add, addMany, update, remove, refresh: loadRemote, importGuest, signedIn, signOut,
-  }), [mode, session, txs, sync, pending, guestCount, add, addMany, update, remove, loadRemote, importGuest, signedIn, signOut]);
+    add, addMany, update, remove, refresh: loadRemote, queueChange, importGuest, signedIn, signOut,
+  }), [mode, session, txs, sync, pending, guestCount, add, addMany, update, remove, loadRemote, queueChange, importGuest, signedIn, signOut]);
 
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
 }

@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "./db";
+import { isDuplicate, prisma } from "./db";
 import { ensureCategory } from "./transactions.server";
 import type { Budget, BudgetInput } from "./types";
 
@@ -21,7 +21,15 @@ async function data(userId: string, i: BudgetInput) {
 
 export const budgetsRepo = {
   list: async (userId: string) => (await prisma.budget.findMany({ where: { userId }, include, orderBy: { startDate: "asc" } })).map(toDto),
-  create: async (userId: string, i: BudgetInput) => toDto(await prisma.budget.create({ data: { userId, ...(await data(userId, i)) }, include })),
+  create: async (userId: string, i: BudgetInput, id?: string) => {
+    try {
+      return toDto(await prisma.budget.create({ data: { id, userId, ...(await data(userId, i)) }, include }));
+    } catch (e) {
+      const again = id && isDuplicate(e) ? await prisma.budget.findFirst({ where: { id, userId }, include }) : null;
+      if (again) return toDto(again);
+      throw e;
+    }
+  },
   update: async (userId: string, id: string, i: BudgetInput) => {
     const { count } = await prisma.budget.updateMany({ where: { id, userId }, data: await data(userId, i) });
     return count ? toDto(await prisma.budget.findUniqueOrThrow({ where: { id }, include })) : null;

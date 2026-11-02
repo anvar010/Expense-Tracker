@@ -280,6 +280,10 @@ model WalletKey {
   keyHash    String    @unique @map("key_hash") @db.VarChar(64)
   createdAt  DateTime  @default(now()) @map("created_at")
   lastUsedAt DateTime? @map("last_used_at")
+  /// What the last request did and what it carried, so a payment that didn't save can be diagnosed.
+  lastAttemptAt DateTime? @map("last_attempt_at")
+  lastStatus    String?   @map("last_status") @db.VarChar(200)
+  lastBody      String?   @map("last_body") @db.VarChar(400)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -12,6 +12,9 @@ function databaseUrl() {
 export const prisma = g.prisma ?? new PrismaClient({ datasourceUrl: databaseUrl() });
 if (process.env.NODE_ENV !== "production") g.prisma = prisma;
 
+/** A unique-key clash (e.g. the same client-chosen id sent twice). */
+export const isDuplicate = (e: unknown) => (e as { code?: string })?.code === "P2002";
+
 /** True when the error means the database can't be reached (so the client should fall back to local data). */
 export function isDbDown(e: unknown) {
   const code = (e as { code?: string })?.code;

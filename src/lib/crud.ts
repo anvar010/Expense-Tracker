@@ -8,7 +8,8 @@ type Ctx = { params: Promise<{ id?: string }> };
 export function crudHandlers<I, O>(cfg: {
   schema: z.ZodType<I>;
   list: (userId: string) => Promise<O[]>;
-  create: (userId: string, input: I) => Promise<O>;
+  /** `id` is chosen by the client, so a create that is retried after a lost reply does not make a second copy. */
+  create: (userId: string, input: I, id?: string) => Promise<O>;
   update: (userId: string, id: string, input: I) => Promise<O | null>;
   remove: (userId: string, id: string) => Promise<boolean>;
 }) {
@@ -20,7 +21,11 @@ export function crudHandlers<I, O>(cfg: {
     };
   return {
     GET: guarded(async (u) => ok(await cfg.list(u))),
-    POST: guarded(async (u, req) => ok(await cfg.create(u, cfg.schema.parse(await req.json())), 201)),
+    POST: guarded(async (u, req) => {
+      const { id, ...body } = (await req.json()) as { id?: unknown } & Record<string, unknown>;
+      const clientId = typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id) ? id : undefined;
+      return ok(await cfg.create(u, cfg.schema.parse(body), clientId), 201);
+    }),
     PUT: guarded(async (u, req, { params }) => {
       const r = await cfg.update(u, (await params).id ?? "", cfg.schema.parse(await req.json()));
       return r ? ok(r) : fail("Not found", 404);

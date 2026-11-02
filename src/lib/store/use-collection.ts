@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useData } from "./data-provider";
+import { hasPending, type Entity } from "./outbox";
 import { collectionFetchedAt as fetchedAt, ls, newId } from "./storage";
 
 const EVENT = "et:collection-changed";
@@ -10,13 +11,14 @@ const EVENT = "et:collection-changed";
 const FRESH_MS = 20_000;
 
 /**
- * Per-user list (accounts, budgets). Guests: localStorage. Signed in: API, with a cached read-only copy
- * when the database is unreachable (writes need a connection and say so).
+ * Per-user list (accounts, budgets, recurring). Guests: localStorage. Signed in: the list is kept on the device and
+ * every change shows at once; changes are queued and sent to the server in order, also after a lost connection.
  */
-export function useCollection<T extends { id: string }>(name: "accounts" | "budgets" | "recurring") {
-  const { mode } = useData();
+export function useCollection<T extends { id: string }>(name: Extract<Entity, "accounts" | "budgets" | "recurring">) {
+  const { mode, queueChange } = useData();
+  const cacheKey = mode === "guest" ? `et:guest:${name}` : `et:cache:${name}`;
   // Start from what this device already has, so a page opens filled in instead of empty while the network answers.
-  const cached = ls.read<T[] | null>(mode === "guest" ? `et:guest:${name}` : `et:cache:${name}`, null);
+  const cached = ls.read<T[] | null>(cacheKey, null);
   const [items, setItems] = useState<T[]>(cached ?? []);
   const [offline, setOffline] = useState(false);
   const [loaded, setLoaded] = useState(cached !== null);
@@ -28,11 +30,17 @@ export function useCollection<T extends { id: string }>(name: "accounts" | "budg
       setOffline(false);
       return setLoaded(true);
     }
+    // Changes of ours are still waiting to be sent, so the server's copy is behind: keep showing the local one.
+    if (hasPending(name)) {
+      setItems(ls.read<T[]>(`et:cache:${name}`, []));
+      return setLoaded(true);
+    }
     if (!force && Date.now() - (fetchedAt.get(name) ?? 0) < FRESH_MS) return setLoaded(true);
     try {
       const res = await fetch(`/api/${name}`);
       if (!res.ok) throw new Error();
       const data = ((await res.json()) as { data: T[] }).data;
+      if (hasPending(name)) return; // something was changed here while this was loading; the next load catches up
       setItems(data);
       ls.write(`et:cache:${name}`, data);
       fetchedAt.set(name, Date.now());
@@ -53,43 +61,29 @@ export function useCollection<T extends { id: string }>(name: "accounts" | "budg
 
   const notify = () => window.dispatchEvent(new CustomEvent(EVENT, { detail: name }));
 
-  async function call(method: string, url: string, body?: unknown) {
-    let res: Response;
-    try {
-      res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-    } catch {
-      throw new Error("You're offline. Reconnect to change this.");
-    }
-    const json = await res.json().catch(() => null);
-    if (res.status === 503) throw new Error("Database is not reachable right now. Try again shortly.");
-    if (!res.ok) throw new Error(json?.error ?? "Request failed");
-    return json.data as T;
-  }
+  /** Rewrites the list this device holds (the guest list, or the signed-in cache) and tells every open view. */
+  const write = useCallback((change: (list: T[]) => T[]) => {
+    const key = mode === "guest" ? `et:guest:${name}` : `et:cache:${name}`;
+    ls.write(key, change(ls.read<T[]>(key, [])));
+    notify();
+  }, [mode, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = useCallback(async (input: Omit<T, "id">) => {
-    if (mode === "guest") {
-      const item = { ...input, id: newId() } as T;
-      ls.write(`et:guest:${name}`, [...ls.read<T[]>(`et:guest:${name}`, []), item]);
-      notify();
-      return item;
-    }
-    const item = await call("POST", `/api/${name}`, input);
-    notify();
+    const item = { ...input, id: newId() } as T;
+    if (mode === "user") queueChange({ kind: "create", entity: name, tempId: item.id, input }); // queued first, so views don't refetch over the change
+    write((list) => [...list, item]);
     return item;
-  }, [mode, name]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, name, write, queueChange]);
 
   const update = useCallback(async (id: string, input: Omit<T, "id">) => {
-    if (mode === "guest") {
-      ls.write(`et:guest:${name}`, ls.read<T[]>(`et:guest:${name}`, []).map((x) => (x.id === id ? ({ ...input, id } as T) : x)));
-    } else await call("PUT", `/api/${name}/${id}`, input);
-    notify();
-  }, [mode, name]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mode === "user") queueChange({ kind: "update", entity: name, id, input });
+    write((list) => list.map((x) => (x.id === id ? ({ ...input, id } as T) : x)));
+  }, [mode, name, write, queueChange]);
 
   const remove = useCallback(async (id: string) => {
-    if (mode === "guest") ls.write(`et:guest:${name}`, ls.read<T[]>(`et:guest:${name}`, []).filter((x) => x.id !== id));
-    else await call("DELETE", `/api/${name}/${id}`);
-    notify();
-  }, [mode, name]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mode === "user") queueChange({ kind: "delete", entity: name, id });
+    write((list) => list.filter((x) => x.id !== id));
+  }, [mode, name, write, queueChange]);
 
   return { items, offline, loaded, create, update, remove };
 }

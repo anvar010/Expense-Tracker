@@ -72,3 +72,59 @@ test("entries added from outside (Apple Pay, another device) show up when the ap
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByText("Apple Pay Cafe")).toBeVisible();
 });
+
+test("accounts and budgets made offline show at once and reach the server in order, before the entries that use them", async ({ page }) => {
+  const state = { down: true, log: [] as string[], accountId: "" };
+  await page.route("**/api/**", (route) => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.route("**/api/auth/me", (route) => route.fulfill({ json: { ok: true, data: { id: "u1", name: "Tester", email: "t@t.co", role: "USER" } } }));
+  const collection = (name: string, label: (b: Record<string, unknown>) => string) =>
+    page.route(`**/api/${name}`, (route) => {
+      if (state.down) return route.abort("internetdisconnected");
+      if (route.request().method() === "POST") {
+        const b = route.request().postDataJSON();
+        state.log.push(`${name}:${label(b)}`);
+        if (name === "accounts") state.accountId = b.id;
+        return route.fulfill({ status: 201, json: { ok: true, data: b } });
+      }
+      return route.fulfill({ json: { ok: true, data: [] } });
+    });
+  await collection("accounts", (b) => String(b.name));
+  await collection("budgets", (b) => String(b.amount));
+  await page.route("**/api/transactions", (route) => {
+    if (state.down) return route.abort("internetdisconnected");
+    if (route.request().method() === "POST") {
+      const b = route.request().postDataJSON();
+      state.log.push(`tx:${b.merchant}:${b.accountId === state.accountId ? "with-account" : "no-account"}`);
+      return route.fulfill({ status: 201, json: { ok: true, data: { ...b, id: "srv-1", createdAt: new Date().toISOString() } } });
+    }
+    return route.fulfill({ json: { ok: true, data: [] } });
+  });
+  await page.addInitScript(() => { if (!sessionStorage.getItem("cleared")) { localStorage.clear(); sessionStorage.setItem("cleared", "1"); } });
+
+  await page.goto("/accounts");
+  await page.getByRole("button", { name: "Add account" }).click();
+  await page.getByLabel("Name").fill("Offline Bank");
+  await page.getByLabel("Opening balance").fill("500");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Offline Bank")).toBeVisible();
+  await expect(page.getByText("AED 500.00").first()).toBeVisible();
+
+  await page.getByRole("link", { name: "Budgets" }).first().click();
+  await page.getByRole("button", { name: "Add budget" }).click();
+  await page.getByLabel("Amount").fill("250");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("of AED 250.00")).toBeVisible();
+
+  await page.getByRole("button", { name: "Add transaction" }).first().click();
+  await page.getByLabel("Amount").fill("20");
+  await page.getByLabel("Merchant").fill("Cafe");
+  await page.getByRole("combobox", { name: "Account" }).click();
+  await page.getByRole("option", { name: "Offline Bank" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText(/Offline · 3 waiting to sync/)).toBeVisible();
+
+  state.down = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => state.log).toEqual(["accounts:Offline Bank", "budgets:250", "tx:Cafe:with-account"]);
+  await expect(page.getByText(/waiting to sync/)).toBeHidden();
+});

@@ -1,5 +1,5 @@
 import { Prisma, type RecurringTransaction as Row } from "@prisma/client";
-import { prisma } from "./db";
+import { isDuplicate, prisma } from "./db";
 import type { Recurring, RecurringInput } from "./types";
 
 const toDto = (r: Row): Recurring => ({
@@ -13,7 +13,15 @@ const data = (i: RecurringInput) => ({
 
 export const recurringRepo = {
   list: async (userId: string) => (await prisma.recurringTransaction.findMany({ where: { userId, status: { in: ["ACTIVE", "PAUSED"] } }, orderBy: { nextDueDate: "asc" } })).map(toDto),
-  create: async (userId: string, i: RecurringInput) => toDto(await prisma.recurringTransaction.create({ data: { userId, ...data(i) } })),
+  create: async (userId: string, i: RecurringInput, id?: string) => {
+    try {
+      return toDto(await prisma.recurringTransaction.create({ data: { id, userId, ...data(i) } }));
+    } catch (e) {
+      const again = id && isDuplicate(e) ? await prisma.recurringTransaction.findFirst({ where: { id, userId } }) : null;
+      if (again) return toDto(again);
+      throw e;
+    }
+  },
   update: async (userId: string, id: string, i: RecurringInput) => {
     const { count } = await prisma.recurringTransaction.updateMany({ where: { id, userId }, data: data(i) });
     return count ? toDto(await prisma.recurringTransaction.findUniqueOrThrow({ where: { id } })) : null;

@@ -53,7 +53,7 @@ function BudgetForm({ initial, onSave, onCancel }: { initial?: Budget; onSave: (
 export default function BudgetsPage() {
   const { txs, mode } = useData();
   const confirm = useConfirm();
-  const { items, offline, loaded, create, update, remove } = useCollection<Budget>("budgets");
+  const { items, loaded, create, update, remove } = useCollection<Budget>("budgets");
   const [editing, setEditing] = useState<Budget | "new" | null>(null);
   const [histId, setHistId] = useState("");
   const [perm, setPerm] = useState<string>(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
@@ -71,11 +71,10 @@ export default function BudgetsPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Budgets</h1>
         <div className="flex gap-2">
           {perm === "default" && <button className="btn-ghost" onClick={async () => setPerm(await Notification.requestPermission())}><Bell size={16} /> Enable alerts</button>}
-          <button className="btn-primary" onClick={() => setEditing("new")} disabled={offline}><Plus size={16} /> Add budget</button>
+          <button className="btn-primary" onClick={() => setEditing("new")}><Plus size={16} /> Add budget</button>
         </div>
       </div>
       <p className="text-sm text-muted">You'll be alerted at 80%, 90% and 100% of each budget{perm === "granted" ? " (browser notifications on)" : "; alerts always appear under the bell"}.</p>
-      {offline && <p className="rounded-xl bg-warning/10 p-3 text-sm text-warning">Showing saved budgets. Changes need a database connection.</p>}
 
       {editing && <BudgetForm key={editing === "new" ? "new" : editing.id} initial={editing === "new" ? undefined : editing} onCancel={() => setEditing(null)}
         onSave={async (v) => { editing === "new" ? await create(v) : await update(editing.id, v); setEditing(null); }} />}
@@ -92,8 +91,8 @@ export default function BudgetsPage() {
                   <p className="text-xs text-muted">{b.period.toLowerCase()} · {p.range[0].toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – {new Date(+p.range[1] - 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
                 </div>
                 <div className="flex gap-1">
-                  <button aria-label="Edit budget" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(b)} disabled={offline}><Pencil size={15} /></button>
-                  <button aria-label="Delete budget" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={offline} onClick={async () => { if (await confirm({ title: "Delete this budget?", message: "Your transactions are not affected." })) await remove(b.id); }}><Trash2 size={15} /></button>
+                  <button aria-label="Edit budget" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(b)}><Pencil size={15} /></button>
+                  <button aria-label="Delete budget" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" onClick={async () => { if (await confirm({ title: "Delete this budget?", message: "Your transactions are not affected." })) await remove(b.id); }}><Trash2 size={15} /></button>
                 </div>
               </div>
               <ProgressBar pct={p.pct} className={cn("h-full rounded-full", BAR[p.status])} />
@@ -154,7 +153,7 @@ export default function BudgetsPage() {
             {suggestions.map((s) => (
               <li key={s.category} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span>{s.category} <span className="text-muted">· avg {fmt(s.average.toDecimalPlaces(0), currency)}</span></span>
-                <button className="btn-ghost !min-h-8 text-xs" disabled={offline}
+                <button className="btn-ghost !min-h-8 text-xs"
                   onClick={() => create({ category: s.category, amount: s.suggested.toFixed(2), currency: currency as Budget["currency"], period: "MONTHLY" })}>
                   Set {fmt(s.suggested, currency)}
                 </button>

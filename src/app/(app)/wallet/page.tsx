@@ -7,8 +7,8 @@ import { useConfirm } from "@/components/confirm";
 import { AppleIcon } from "@/components/apple-icon";
 import { useData } from "@/lib/store/data-provider";
 
-type Status = { exists: boolean; key: string | null; createdAt: string | null; lastUsedAt: string | null };
-const NONE: Status = { exists: false, key: null, createdAt: null, lastUsedAt: null };
+type Status = { exists: boolean; key: string | null; createdAt: string | null; lastUsedAt: string | null; lastAttemptAt: string | null; lastStatus: string | null; lastBody: string | null };
+const NONE: Status = { exists: false, key: null, createdAt: null, lastUsedAt: null, lastAttemptAt: null, lastStatus: null, lastBody: null };
 
 export default function WalletPage() {
   const { mode } = useData();
@@ -68,6 +68,8 @@ export default function WalletPage() {
         <p className="mt-1 text-sm text-muted">Every time you pay with a card in Apple Wallet, your iPhone sends the amount and shop here and it is saved as a debit.</p>
       </div>
 
+      {/* Side by side on tablets and desktops, stacked on phones. */}
+      <div className="grid gap-6 md:grid-cols-2">
       <section className="card space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm font-medium"><AppleIcon size={16} /> Your private link</p>
@@ -89,6 +91,32 @@ export default function WalletPage() {
           {busy ? "Creating…" : status?.exists ? "Create a new link" : "Create my link"}
         </button>
       </section>
+
+      {status?.exists && (
+        <section className="card space-y-2 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium">Last request from your iPhone</h2>
+            <button className="btn-ghost !min-h-8 text-xs" onClick={() => void load()}>Refresh</button>
+          </div>
+          {status.lastAttemptAt ? (
+            <>
+              <p className={status.lastStatus?.startsWith("Saved") ? "text-sm text-accent" : "text-sm text-warning"}>
+                {status.lastStatus} <span className="text-muted">· {when(status.lastAttemptAt)}</span>
+              </p>
+              {status.lastBody && (
+                <>
+                  <p className="text-xs text-muted">What your iPhone sent:</p>
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-surface-2 p-3 font-mono text-xs">{status.lastBody}</pre>
+                </>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted">Nothing has reached the server with this link yet. After a payment, or after you run the shortcut, tap Refresh.</p>
+          )}
+        </section>
+      )}
+
+      </div>
 
       <section className="card space-y-4 p-4">
         <h2 className="text-sm font-medium">Set it up on your iPhone (about 2 minutes)</h2>

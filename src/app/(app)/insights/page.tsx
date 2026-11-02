@@ -133,7 +133,7 @@ export default function InsightsPage() {
               <li key={s.key} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
                 <span><b className="font-medium">{s.merchant}</b> · {fmt(s.amount, s.currency)} {s.frequency.toLowerCase()} <span className="text-muted">· seen {s.occurrences}× · {Math.round(s.confidence * 100)}% sure · next ~{new Date(s.nextDue).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span></span>
                 <span className="flex gap-2">
-                  <button className="btn-primary !min-h-8 text-xs" disabled={rec.offline} onClick={() => guarded(() => rec.create({ name: s.merchant, category: s.category, currency: s.currency as Recurring["currency"], amount: s.amount, frequency: s.frequency, nextDueDate: s.nextDue, status: "ACTIVE" }))}>Confirm</button>
+                  <button className="btn-primary !min-h-8 text-xs" onClick={() => guarded(() => rec.create({ name: s.merchant, category: s.category, currency: s.currency as Recurring["currency"], amount: s.amount, frequency: s.frequency, nextDueDate: s.nextDue, status: "ACTIVE" }))}>Confirm</button>
                   <button className="btn-ghost !min-h-8 text-xs" onClick={() => setDismissed((d) => [...d, s.key])}>Not recurring</button>
                 </span>
               </li>
@@ -154,8 +154,8 @@ export default function InsightsPage() {
                     <span><b className="font-medium">{r.name}</b> · {fmt(r.amount, r.currency)} {r.frequency.toLowerCase()}
                       <span className="block text-xs text-muted">{r.status === "PAUSED" ? "Paused" : `Next ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} (${days <= 0 ? "today" : `in ${days} day${days > 1 ? "s" : ""}`})`}</span></span>
                     <span className="flex gap-1">
-                      <button aria-label={r.status === "PAUSED" ? "Resume" : "Pause"} className="btn-ghost size-9 !min-h-9 !p-0" disabled={rec.offline} onClick={() => guarded(() => rec.update(r.id, { ...r, status: r.status === "PAUSED" ? "ACTIVE" : "PAUSED" }))}>{r.status === "PAUSED" ? <Play size={15} /> : <Pause size={15} />}</button>
-                      <button aria-label="Remove" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={rec.offline} onClick={async () => { if (await confirm({ title: `Stop tracking ${r.name}?`, message: "It is removed from your recurring payments." , confirmLabel: "Remove" })) await guarded(() => rec.remove(r.id)); }}><Trash2 size={15} /></button>
+                      <button aria-label={r.status === "PAUSED" ? "Resume" : "Pause"} className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => guarded(() => rec.update(r.id, { ...r, status: r.status === "PAUSED" ? "ACTIVE" : "PAUSED" }))}>{r.status === "PAUSED" ? <Play size={15} /> : <Pause size={15} />}</button>
+                      <button aria-label="Remove" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" onClick={async () => { if (await confirm({ title: `Stop tracking ${r.name}?`, message: "It is removed from your recurring payments." , confirmLabel: "Remove" })) await guarded(() => rec.remove(r.id)); }}><Trash2 size={15} /></button>
                     </span>
                   </li>
                 );

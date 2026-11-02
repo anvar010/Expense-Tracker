@@ -17,6 +17,21 @@ function makeKey(userId: string, createdAt: Date) {
   return deriveWalletKey(secret, userId, createdAt);
 }
 
+const BASE = { id: true, userId: true, createdAt: true, lastUsedAt: true } as const;
+
+/** Notes what a request did and what it carried. Never throws: this is only a troubleshooting aid. */
+export async function recordWalletAttempt(userId: string, status: string, body: string) {
+  try {
+    await prisma.walletKey.update({
+      where: { userId },
+      data: { lastAttemptAt: new Date(), lastStatus: status.slice(0, 200), lastBody: body.slice(0, 400) },
+      select: { id: true },
+    });
+  } catch {
+    // column not added yet, or the key was just removed
+  }
+}
+
 /** Creates (or replaces) the user's key and returns it. */
 export async function createWalletKey(userId: string) {
   const createdAt = new Date();
@@ -25,17 +40,23 @@ export async function createWalletKey(userId: string) {
     where: { userId },
     create: { userId, createdAt, keyHash: hash(key) },
     update: { createdAt, keyHash: hash(key), lastUsedAt: null },
+    select: { id: true },
   });
+  // A new link starts with a clean "last request" (those columns may not exist yet, which is fine).
+  await prisma.walletKey.update({ where: { userId }, data: { lastAttemptAt: null, lastStatus: null, lastBody: null }, select: { id: true } }).catch(() => {});
   return key;
 }
 
 export const revokeWalletKey = (userId: string) => prisma.walletKey.deleteMany({ where: { userId } });
 
 export async function walletKeyStatus(userId: string) {
-  const k = await prisma.walletKey.findUnique({ where: { userId } });
+  const k = await prisma.walletKey.findUnique({ where: { userId }, select: BASE });
+  // The "last request" columns come from a later migration; until it is applied they're simply absent.
+  const last = k ? await prisma.walletKey.findUnique({ where: { userId }, select: { lastAttemptAt: true, lastStatus: true, lastBody: true } }).catch(() => null) : null;
   return {
     exists: !!k, key: k ? makeKey(userId, k.createdAt) : null,
     createdAt: k?.createdAt.toISOString() ?? null, lastUsedAt: k?.lastUsedAt?.toISOString() ?? null,
+    lastAttemptAt: last?.lastAttemptAt?.toISOString() ?? null, lastStatus: last?.lastStatus ?? null, lastBody: last?.lastBody ?? null,
   };
 }
 
@@ -43,11 +64,11 @@ export async function walletKeyStatus(userId: string) {
 export async function userForWalletKey(key: string) {
   const claimed = walletKeyUser(key);
   if (!claimed) return null;
-  const k = await prisma.walletKey.findUnique({ where: { userId: claimed } });
+  const k = await prisma.walletKey.findUnique({ where: { userId: claimed }, select: BASE });
   if (!k) return null;
   const expected = Buffer.from(makeKey(k.userId, k.createdAt)), given = Buffer.from(key);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  void prisma.walletKey.update({ where: { id: k.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+  void prisma.walletKey.update({ where: { id: k.id }, data: { lastUsedAt: new Date() }, select: { id: true } }).catch(() => {});
   return k.userId;
 }
 
