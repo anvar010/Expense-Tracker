@@ -1,13 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Ellipsis, Plus, type LucideIcon } from "lucide-react";
+import { Ellipsis, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { cn } from "@/lib/cn";
 
-export type DockItem = { href: string; label: string; icon: LucideIcon };
+export type DockItem = { href: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }> };
 
 const PILL = { type: "spring", stiffness: 380, damping: 32 } as const;
 
@@ -19,7 +19,7 @@ function DockLink({ item, active, pillId, compact }: { item: DockItem; active: b
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium text-muted transition-colors hover:text-foreground aria-[current=page]:text-foreground",
-        compact ? "min-w-0 flex-1 px-1" : "min-w-[4.5rem] px-1.5 lg:min-w-[6rem] lg:gap-1.5 lg:px-3 lg:py-3 lg:text-xs xl:min-w-[7.25rem]",
+        compact ? "min-w-0 flex-1 px-1" : "min-w-[4.5rem] px-1.5 lg:min-w-[4.75rem] lg:gap-1.5 lg:px-2 lg:py-3 lg:text-xs xl:min-w-[6rem] xl:px-3",
       )}
     >
       {active && <motion.span layoutId={pillId} transition={PILL} className="absolute inset-0 rounded-2xl bg-surface-2" />}
@@ -63,7 +63,7 @@ export function Dock({ primary, more, onAdd }: { primary: DockItem[]; more: Dock
           {left.map((i) => <DockLink key={i.href} item={i} active={isActive(i.href)} pillId="pill-desktop" />)}
           <motion.button
             type="button" aria-label="Add transaction" onClick={onAdd} whileHover={{ y: -2 }} whileTap={{ scale: 0.94 }} transition={PILL}
-            className="mx-1 flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl bg-primary px-1.5 py-2 text-[11px] font-semibold lg:mx-2 lg:min-w-[6.5rem] lg:gap-1.5 lg:px-4 lg:py-3 lg:text-xs xl:min-w-[7.5rem] text-primary-fg shadow-[0_8px_24px_-8px_rgb(217_10_30/0.6)]"
+            className="mx-1 flex min-w-[4.5rem] flex-col items-center gap-1 rounded-2xl bg-primary px-1.5 py-2 text-[11px] font-semibold lg:mx-1.5 lg:min-w-[5.5rem] lg:gap-1.5 lg:px-3 lg:py-3 lg:text-xs xl:mx-2 xl:min-w-[6.5rem] text-primary-fg shadow-[0_8px_24px_-8px_rgb(217_10_30/0.6)]"
           >
             <Plus strokeWidth={2.4} className="size-5 lg:size-6" /> Add
           </motion.button>

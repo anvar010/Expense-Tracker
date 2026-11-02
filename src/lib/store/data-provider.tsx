@@ -2,13 +2,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { COLLECTION_CACHE_KEYS, KEYS, ls, newId } from "./storage";
+import { COLLECTION_CACHE_KEYS, KEYS, ls, newId, resetCollectionFreshness } from "./storage";
+import { newestFirst } from "@/lib/tx-order";
 import type { Session, Tx, TxInput } from "@/lib/types";
 
-type Op =
+type OpBody =
   | { kind: "create"; tempId: string; input: TxInput }
   | { kind: "update"; id: string; input: TxInput }
   | { kind: "delete"; id: string };
+/** A queued change. opId identifies it so it can be found again while a newer change is queued behind it. */
+type Op = OpBody & { opId: string };
 
 export type Mode = "loading" | "guest" | "user";
 export type SyncState = "synced" | "offline" | "syncing";
@@ -42,7 +45,8 @@ class Unreachable extends Error {}
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...init?.headers } });
+    // A stalled connection counts as offline, so the queue keeps the change instead of hanging.
+    res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...init?.headers }, signal: AbortSignal.timeout(15000) });
   } catch {
     throw new Unreachable();
   }
@@ -57,6 +61,15 @@ const toInput = (t: Tx): TxInput => ({
   merchant: t.merchant, date: t.date, notes: t.notes, source: t.source,
 });
 
+/** The queue, oldest first. Entries saved by an older version have no opId yet, so they get one. */
+function readOutbox(): Op[] {
+  const raw = ls.read<(OpBody & { opId?: string })[]>(KEYS.outbox, []);
+  let fixed = false;
+  const ops = raw.map((o) => (o.opId ? o : (fixed = true, { ...o, opId: newId() }))) as Op[];
+  if (fixed) ls.write(KEYS.outbox, ops);
+  return ops;
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [session, setSession] = useState<Session | null>(null);
@@ -65,83 +78,116 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(0);
   const [guestCount, setGuestCount] = useState(0);
   const flushing = useRef(false);
+  // Always the latest list, so several quick changes build on each other instead of on a stale render.
+  const txsRef = useRef<Tx[]>([]);
 
-  const setList = useCallback((next: Tx[], persistTo: string) => {
+  const setAll = useCallback((next: Tx[]) => {
+    txsRef.current = next;
     setTxs(next);
+  }, []);
+
+  const commit = useCallback((next: Tx[], persistTo: string) => {
+    setAll(next);
     ls.write(persistTo, next);
+  }, [setAll]);
+
+  const writeOutbox = useCallback((ops: Op[]) => {
+    ls.write(KEYS.outbox, ops);
+    setPending(ops.length);
   }, []);
 
   const loadGuest = useCallback(() => {
     const list = ls.read<Tx[]>(KEYS.guest, []);
-    setTxs(list);
+    setAll(list);
     setGuestCount(list.length);
     setSync("synced");
     setPending(0);
-  }, []);
+  }, [setAll]);
 
-  const flush = useCallback(async () => {
-    if (flushing.current) return;
-    const outbox = ls.read<Op[]>(KEYS.outbox, []);
-    if (!outbox.length) return;
+  /**
+   * Sends the queue to the server one change at a time, oldest first (first come, first served), so entries
+   * land in the order they were added. If the network drops, it stops and keeps everything that is left.
+   */
+  const flush = useCallback(async (): Promise<void> => {
+    if (flushing.current || !readOutbox().length) return;
     flushing.current = true;
     setSync("syncing");
-    const idMap = new Map<string, string>();
-    const rest: Op[] = [];
+    const idMap = ls.read<Record<string, string>>(KEYS.idmap, {});
+    const real = (id: string) => idMap[id] ?? id;
     let blocked = false;
-    for (const op of outbox) {
-      if (blocked) { rest.push(op); continue; }
-      try {
-        if (op.kind === "create") {
-          const t = await api<Tx>("/api/transactions", {
-            method: "POST", body: JSON.stringify({ ...op.input, idempotencyKey: op.tempId }),
-          });
-          idMap.set(op.tempId, t.id);
-        } else if (op.kind === "update") {
-          await api(`/api/transactions/${idMap.get(op.id) ?? op.id}`, { method: "PUT", body: JSON.stringify(op.input) });
-        } else {
-          await api(`/api/transactions/${idMap.get(op.id) ?? op.id}`, { method: "DELETE" });
+    try {
+      for (;;) {
+        const op = readOutbox()[0];
+        if (!op) break;
+        let created: Tx | undefined;
+        try {
+          if (op.kind === "create") {
+            created = await api<Tx>("/api/transactions", { method: "POST", body: JSON.stringify({ ...op.input, idempotencyKey: op.tempId }) });
+            idMap[op.tempId] = created.id;
+            ls.write(KEYS.idmap, idMap);
+            const saved = created;
+            commit(txsRef.current.map((t) => (t.id === op.tempId ? saved : t)), KEYS.cache); // swap in the server's version
+          } else if (op.kind === "update") {
+            await api(`/api/transactions/${real(op.id)}`, { method: "PUT", body: JSON.stringify(op.input) });
+          } else {
+            await api(`/api/transactions/${real(op.id)}`, { method: "DELETE" });
+          }
+        } catch (e) {
+          if (e instanceof Unreachable) { blocked = true; break; }
+          // A rejected change (validation, already deleted) is dropped so it can't block the queue forever.
         }
-      } catch (e) {
-        if (e instanceof Unreachable) { blocked = true; rest.push(op); }
-        // A rejected op (validation, already deleted) is dropped so it can't block the queue forever.
+        // Settle this change against the queue as it is now: it may have been edited or removed while it was sending.
+        const cur = readOutbox();
+        const at = cur.findIndex((o) => o.opId === op.opId);
+        const next = cur.filter((o) => o.opId !== op.opId);
+        if (op.kind === "create" && created) {
+          const now = at >= 0 ? cur[at] : undefined;
+          if (!now) next.unshift({ kind: "delete", id: created.id, opId: newId() }); // deleted while sending
+          else if (now.kind === "create" && JSON.stringify(now.input) !== JSON.stringify(op.input)) {
+            next.splice(at, 0, { kind: "update", id: created.id, input: now.input, opId: newId() }); // edited while sending
+          }
+        }
+        writeOutbox(next);
       }
+    } finally {
+      flushing.current = false;
     }
-    ls.write(KEYS.outbox, rest);
-    setPending(rest.length);
-    flushing.current = false;
-    setSync(rest.length ? "offline" : "synced");
-  }, []);
+    const left = readOutbox().length;
+    setPending(left);
+    setSync(blocked || left ? "offline" : "synced");
+  }, [commit, writeOutbox]);
 
   const loadRemote = useCallback(async () => {
     await flush();
     try {
       const list = await api<Tx[]>("/api/transactions");
       // Keep unsynced local creates visible until they reach the server.
-      const outbox = ls.read<Op[]>(KEYS.outbox, []);
+      const outbox = readOutbox();
       if (outbox.length) {
-        setTxs(ls.read<Tx[]>(KEYS.cache, list));
+        setAll(ls.read<Tx[]>(KEYS.cache, list));
         setPending(outbox.length);
         setSync("offline");
         return;
       }
-      setList(list, KEYS.cache);
+      commit(list, KEYS.cache);
       setSync("synced");
     } catch (e) {
       if (e instanceof Unreachable) {
-        setTxs(ls.read<Tx[]>(KEYS.cache, []));
-        setPending(ls.read<Op[]>(KEYS.outbox, []).length);
+        setAll(ls.read<Tx[]>(KEYS.cache, []));
+        setPending(readOutbox().length);
         setSync("offline");
       }
     }
-  }, [flush, setList]);
+  }, [flush, commit, setAll]);
 
   const enterUser = useCallback(async (s: Session) => {
+    resetCollectionFreshness();
     setSession(s);
     setMode("user");
     setGuestCount(ls.read<Tx[]>(KEYS.guest, []).length);
-    setTxs(ls.read<Tx[]>(KEYS.cache, []));
+    setAll(ls.read<Tx[]>(KEYS.cache, []));
     await loadRemote();
-  }, [loadRemote]);
+  }, [loadRemote, setAll]);
 
   // Boot: the signed cookie tells us who we are even when the database is down.
   useEffect(() => {
@@ -167,87 +213,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => { window.removeEventListener("online", retry); navigator.serviceWorker?.removeEventListener("message", onSw); clearInterval(t); };
   }, [mode, sync, loadRemote]);
 
-  const queue = (op: Op) => {
-    const next = [...ls.read<Op[]>(KEYS.outbox, []), op];
-    ls.write(KEYS.outbox, next);
-    setPending(next.length);
-    setSync("offline");
+  const queue = (...bodies: OpBody[]) => {
+    writeOutbox([...readOutbox(), ...bodies.map((b) => ({ ...b, opId: newId() }) as Op)]);
     // Ask the browser to wake us for a retry when connectivity returns (Chromium; harmless elsewhere).
     navigator.serviceWorker?.ready.then((r) => (r as unknown as { sync?: { register(t: string): Promise<void> } }).sync?.register("et-sync")).catch(() => {});
   };
 
+  // Changes show up instantly and are saved in the background (see flush), so nothing waits on the network.
   const add = useCallback(async (input: TxInput) => {
+    const entry = { ...input, createdAt: new Date().toISOString() };
     if (mode === "guest") {
-      const next = [{ ...input, id: newId() }, ...txs].sort((a, b) => b.date.localeCompare(a.date));
-      setList(next, KEYS.guest);
+      const next = [{ ...entry, id: newId() }, ...txsRef.current].sort(newestFirst);
+      commit(next, KEYS.guest);
       setGuestCount(next.length);
       return;
     }
     const tempId = newId();
-    const local: Tx = { ...input, id: tempId };
-    setList([local, ...txs].sort((a, b) => b.date.localeCompare(a.date)), KEYS.cache);
+    commit([{ ...entry, id: tempId }, ...txsRef.current].sort(newestFirst), KEYS.cache);
     queue({ kind: "create", tempId, input });
-    await flush();
-    await loadRemote();
-  }, [mode, txs, setList, flush, loadRemote]);
+    void flush();
+  }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addMany = useCallback(async (inputs: TxInput[]) => {
     if (!inputs.length) return;
-    const created: Tx[] = inputs.map((i) => ({ ...i, id: newId() }));
-    const merged = [...created, ...txs].sort((a, b) => b.date.localeCompare(a.date));
+    const now = new Date().toISOString();
+    const created: Tx[] = inputs.map((i) => ({ ...i, id: newId(), createdAt: now }));
+    const merged = [...created, ...txsRef.current].sort(newestFirst);
     if (mode === "guest") {
-      setList(merged, KEYS.guest);
+      commit(merged, KEYS.guest);
       setGuestCount(merged.length);
       return;
     }
-    setList(merged, KEYS.cache);
-    const ops: Op[] = created.map((t) => ({ kind: "create", tempId: t.id, input: inputs[created.indexOf(t)] }));
-    const next = [...ls.read<Op[]>(KEYS.outbox, []), ...ops];
-    ls.write(KEYS.outbox, next);
-    setPending(next.length);
-    await flush();
-    await loadRemote();
-  }, [mode, txs, setList, flush, loadRemote]);
+    commit(merged, KEYS.cache);
+    queue(...created.map((t, i): OpBody => ({ kind: "create", tempId: t.id, input: inputs[i] })));
+    void flush();
+  }, [mode, commit, flush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = useCallback(async (id: string, input: TxInput) => {
-    const next = txs.map((t) => (t.id === id ? { ...t, ...input, id } : t));
-    if (mode === "guest") return setList(next, KEYS.guest);
-    setList(next, KEYS.cache);
-    const outbox = ls.read<Op[]>(KEYS.outbox, []);
+    const next = txsRef.current.map((t) => (t.id === id ? { ...t, ...input, id } : t));
+    if (mode === "guest") return commit(next, KEYS.guest);
+    commit(next, KEYS.cache);
+    const outbox = readOutbox();
     const pendingCreate = outbox.find((o) => o.kind === "create" && o.tempId === id);
     if (pendingCreate && pendingCreate.kind === "create") {
       pendingCreate.input = input; // still unsynced: just rewrite the create
-      ls.write(KEYS.outbox, outbox);
+      writeOutbox(outbox);
     } else queue({ kind: "update", id, input });
-    await flush();
-    await loadRemote();
-  }, [mode, txs, setList, flush, loadRemote]);
+    void flush();
+  }, [mode, commit, flush, writeOutbox]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const remove = useCallback(async (id: string) => {
-    const next = txs.filter((t) => t.id !== id);
+    const next = txsRef.current.filter((t) => t.id !== id);
     if (mode === "guest") {
-      setList(next, KEYS.guest);
+      commit(next, KEYS.guest);
       setGuestCount(next.length);
       return;
     }
-    setList(next, KEYS.cache);
-    const outbox = ls.read<Op[]>(KEYS.outbox, []);
+    commit(next, KEYS.cache);
+    const outbox = readOutbox();
     if (outbox.some((o) => o.kind === "create" && o.tempId === id)) {
-      const kept = outbox.filter((o) => !("tempId" in o && o.tempId === id));
-      ls.write(KEYS.outbox, kept);
-      setPending(kept.length);
+      writeOutbox(outbox.filter((o) => !(o.kind === "create" && o.tempId === id)));
     } else queue({ kind: "delete", id });
-    await flush();
-    await loadRemote();
-  }, [mode, txs, setList, flush, loadRemote]);
+    void flush();
+  }, [mode, commit, flush, writeOutbox]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const importGuest = useCallback(async () => {
     const guest = ls.read<Tx[]>(KEYS.guest, []);
-    for (const g of guest) queue({ kind: "create", tempId: g.id, input: toInput(g) });
+    queue(...guest.map((g): OpBody => ({ kind: "create", tempId: g.id, input: toInput(g) })));
     ls.remove(KEYS.guest);
     setGuestCount(0);
     await loadRemote();
-  }, [loadRemote]);
+  }, [loadRemote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signedIn = enterUser;
 
@@ -256,6 +292,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Account data must not outlive the session on this device.
     ls.remove(KEYS.cache);
     ls.remove(KEYS.outbox);
+    ls.remove(KEYS.idmap);
+    resetCollectionFreshness();
     COLLECTION_CACHE_KEYS.forEach(ls.remove);
     setSession(null);
     setMode("guest");

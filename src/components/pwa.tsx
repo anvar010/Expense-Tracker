@@ -53,10 +53,10 @@ export function PwaRegister() {
   );
 }
 
-export function InstallButton() {
+/** Whether the app can be installed here, and how. Call once and pass the result to whatever shows the button. */
+export function useInstall() {
   const [evt, setEvt] = useState<InstallEvent | null>(null);
   const [ios, setIos] = useState(false);
-  const [tip, setTip] = useState(false);
 
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone;
@@ -68,10 +68,22 @@ export function InstallButton() {
     return () => window.removeEventListener("beforeinstallprompt", h);
   }, []);
 
-  if (!evt && !ios) return null;
+  return {
+    available: !!evt || ios,
+    /** iPhones can't prompt; they need the Share → Add to Home Screen steps. */
+    needsManualSteps: !evt && ios,
+    install: async () => { if (evt) { await evt.prompt(); setEvt(null); } },
+  };
+}
+
+export type Install = ReturnType<typeof useInstall>;
+
+export function InstallButton({ install }: { install: Install }) {
+  const [tip, setTip] = useState(false);
+  if (!install.available) return null;
   return (
     <div className="relative">
-      <button className="btn-ghost" onClick={async () => { if (evt) { await evt.prompt(); setEvt(null); } else setTip(!tip); }}>
+      <button className="btn-ghost" onClick={() => (install.needsManualSteps ? setTip(!tip) : void install.install())}>
         <Download size={16} /> <span className="hidden sm:inline">Install</span>
       </button>
       {tip && <p className="card absolute right-0 z-50 mt-2 w-64 p-3 text-xs text-muted">In Safari, tap the Share button, then <b>Add to Home Screen</b>.</p>}

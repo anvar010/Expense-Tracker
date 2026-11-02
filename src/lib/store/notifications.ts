@@ -25,7 +25,7 @@ export function useNotifications(mode: string) {
     window.addEventListener(EVENT, load);
     return () => window.removeEventListener(EVENT, load);
   }, [load]);
-  const markAllRead = () => { ls.write(notificationKey(mode), items.map((i) => ({ ...i, read: true }))); load(); };
-  const clear = () => { ls.write(notificationKey(mode), []); load(); };
+  const markAllRead = () => { ls.write(notificationKey(mode), items.map((i) => ({ ...i, read: true }))); window.dispatchEvent(new Event(EVENT)); };
+  const clear = () => { ls.write(notificationKey(mode), []); window.dispatchEvent(new Event(EVENT)); };
   return { items, unread: items.filter((i) => !i.read).length, markAllRead, clear };
 }

@@ -6,10 +6,12 @@ import Link from "next/link";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
+import { AppleIcon } from "./apple-icon";
 import { BudgetAlerts } from "./budget-alerts";
 import { Dock, type DockItem } from "./dock";
 import { NotificationBell } from "./notification-bell";
-import { InstallButton } from "./pwa";
+import { ProfileMenu } from "./profile-menu";
+import { InstallButton, useInstall } from "./pwa";
 import { TxDialog } from "./tx-dialog";
 
 // First three stay on the phone's tab bar; the rest sit behind "More" there and fill the desktop dock.
@@ -23,6 +25,7 @@ const MORE: DockItem[] = [
   { href: "/messages", label: "Messages", icon: MessageSquareText },
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/import", label: "Import", icon: FileUp },
+  { href: "/wallet", label: "Apple Pay", icon: AppleIcon },
 ];
 const ADMIN_ITEM: DockItem = { href: "/admin", label: "Users", icon: ShieldCheck };
 
@@ -44,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { mode, session, signOut } = useData();
   const [adding, setAdding] = useState(false);
   const [dark, setDark] = useState(false);
+  const install = useInstall();
   useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
 
   const toggleTheme = () => {
@@ -66,16 +70,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             <StatusPill />
           </div>
           <div className="flex items-center gap-2">
-            <InstallButton />
-            <NotificationBell />
-            <motion.button whileTap={{ rotate: 25, scale: 0.9 }} onClick={toggleTheme} aria-label="Toggle theme" className="btn-ghost size-10 !p-0">
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
-            </motion.button>
-            {mode === "user" ? (
-              <button onClick={signOut} className="btn-ghost"><LogOut size={16} /> <span className="hidden sm:inline">Sign out</span></button>
-            ) : mode === "guest" ? (
-              <Link href="/login" className="btn-primary"><LogIn size={16} /> Sign in</Link>
-            ) : null}
+            {/* Wide screens keep the buttons in the bar; phones and tablets fold them into the profile menu. */}
+            <div className="hidden items-center gap-2 lg:flex">
+              <InstallButton install={install} />
+              <NotificationBell />
+              <motion.button whileTap={{ rotate: 25, scale: 0.9 }} onClick={toggleTheme} aria-label="Toggle theme" className="btn-ghost size-10 !p-0">
+                {dark ? <Sun size={18} /> : <Moon size={18} />}
+              </motion.button>
+              {mode === "user" && <button onClick={signOut} className="btn-ghost"><LogOut size={16} /> Sign out</button>}
+            </div>
+            {mode === "guest" && <Link href="/login" className="btn-primary"><LogIn size={16} /> Sign in</Link>}
+            {mode !== "loading" && <ProfileMenu dark={dark} onToggleTheme={toggleTheme} install={install} />}
           </div>
         </div>
       </header>

@@ -4,6 +4,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `audit_logs`;
 DROP TABLE IF EXISTS `ai_insights`;
+DROP TABLE IF EXISTS `wallet_keys`;
 DROP TABLE IF EXISTS `push_subscriptions`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `recurring_transactions`;

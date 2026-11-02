@@ -27,7 +27,8 @@ export const txInputSchema = z.object({
   message: "Only adjustments can be negative", path: ["amount"],
 });
 export type TxInput = z.infer<typeof txInputSchema>;
-export type Tx = TxInput & { id: string };
+/** createdAt is when the entry was added (set by the server, or by the device for guest entries). */
+export type Tx = TxInput & { id: string; createdAt?: string };
 
 export type Role = "SUPER_ADMIN" | "USER";
 export type Session = { id: string; name: string; email: string; role: Role };

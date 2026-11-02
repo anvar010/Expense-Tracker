@@ -20,6 +20,7 @@ export const toDto = (r: Row): Tx => ({
   source: r.source,
   accountId: r.accountId ?? undefined,
   toAccountId: r.toAccountId ?? undefined,
+  createdAt: r.createdAt.toISOString(),
 });
 
 /** Rejects account ids that don't belong to this user (no cross-user references). */
@@ -53,7 +54,7 @@ async function resolveRefs(userId: string, input: TxInput) {
 
 export async function listTransactions(userId: string): Promise<Tx[]> {
   const rows = await prisma.transaction.findMany({
-    where: { userId }, include, orderBy: { date: "desc" }, take: 2000,
+    where: { userId }, include, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 2000,
   });
   return rows.map(toDto);
 }

@@ -54,5 +54,10 @@ export function summarize(txs: Tx[], currency: string): Summary {
   };
 }
 
-export const fmt = (v: Decimal.Value, currency: string) =>
-  new Intl.NumberFormat("en", { style: "currency", currency }).format(new Decimal(v).toNumber());
+// Building an Intl.NumberFormat is slow, and long lists format hundreds of amounts, so each currency gets one.
+const formatters = new Map<string, Intl.NumberFormat>();
+export const fmt = (v: Decimal.Value, currency: string) => {
+  let f = formatters.get(currency);
+  if (!f) formatters.set(currency, (f = new Intl.NumberFormat("en", { style: "currency", currency })));
+  return f.format(new Decimal(v).toNumber());
+};

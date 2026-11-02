@@ -82,91 +82,111 @@ function TxForm({ onClose, editing }: { onClose: () => void; editing?: Tx | null
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
         role="dialog" aria-modal="true" aria-label={editing ? "Edit transaction" : "Add transaction"}
         onSubmit={submit} onMouseDown={(e) => e.stopPropagation()}
-        className="card max-h-[92dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-b-none p-6 sm:rounded-b-2xl"
+        className="card flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-b-none sm:rounded-b-2xl"
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{editing ? "Edit transaction" : "Add transaction"}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="btn-ghost size-10 !p-0"><X size={18} /></button>
+        <div className="px-5 pt-2.5 sm:pt-5">
+          <span aria-hidden className="mx-auto mb-2 block h-1 w-10 rounded-full bg-border sm:hidden" />
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{editing ? "Edit transaction" : "Add transaction"}</h2>
+            <button type="button" onClick={onClose} aria-label="Close" className="btn-ghost size-10 !p-0"><X size={18} /></button>
+          </div>
         </div>
 
-        {isDebitCredit ? (
-          <div className="space-y-1">
-            <div role="radiogroup" aria-label="Debit or credit" className="relative grid grid-cols-2 rounded-xl border border-border bg-surface-2 p-1">
-              <motion.span
-                aria-hidden className={cn("absolute inset-y-1 w-[calc(50%-4px)] rounded-lg", type === "EXPENSE" ? "bg-danger/20" : "bg-accent/20")}
-                animate={{ left: type === "EXPENSE" ? 4 : "50%" }} transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              />
-              {([["EXPENSE", "Debit"], ["INCOME", "Credit"]] as const).map(([value, text]) => (
-                <button
-                  key={value} type="button" role="radio" aria-checked={type === value}
-                  onClick={() => setValue("type", value, { shouldDirty: true })}
-                  className={cn("relative z-10 min-h-10 rounded-lg text-sm font-medium", type === value ? "text-foreground" : "text-muted")}
-                >{text}</button>
-              ))}
+        <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-3">
+          {isDebitCredit ? (
+            <div className="space-y-1.5">
+              <div role="radiogroup" aria-label="Debit or credit" className="relative grid grid-cols-2 rounded-xl border border-border bg-surface-2 p-1">
+                <motion.span
+                  aria-hidden className={cn("absolute inset-y-1 w-[calc(50%-4px)] rounded-lg", type === "EXPENSE" ? "bg-danger/20" : "bg-accent/20")}
+                  animate={{ left: type === "EXPENSE" ? 4 : "50%" }} transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                />
+                {([["EXPENSE", "Debit"], ["INCOME", "Credit"]] as const).map(([value, text]) => (
+                  <button
+                    key={value} type="button" role="radio" aria-checked={type === value}
+                    onClick={() => setValue("type", value, { shouldDirty: true })}
+                    className={cn("relative z-10 min-h-11 rounded-lg text-sm font-medium", type === value ? "text-foreground" : "text-muted")}
+                  >{text}</button>
+                ))}
+              </div>
+              <button type="button" className="block text-xs text-muted underline" onClick={() => setValue("type", "TRANSFER", { shouldDirty: true })}>Transfer, card payment or other</button>
             </div>
-            <button type="button" className="text-xs text-muted underline" onClick={() => setValue("type", "TRANSFER", { shouldDirty: true })}>Transfer, card payment or other</button>
-          </div>
-        ) : (
-          <div>
-            <label className="label" htmlFor="type">Type</label>
-            <Select id="type" className="input" {...register("type")}>
-              {TX_TYPES.filter((t) => t !== "EXPENSE" && t !== "INCOME").map((t) => <option key={t} value={t}>{label(t)}</option>)}
-            </Select>
-            <button type="button" className="mt-1 text-xs text-muted underline" onClick={() => setValue("type", "EXPENSE", { shouldDirty: true })}>Back to debit / credit</button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label" htmlFor="date">Date</label>
-            <input id="date" type="date" className="input" {...register("date")} />
-            {errors.date && <p className="mt-1 text-xs text-danger">{errors.date.message}</p>}
-          </div>
-          <div>
-            <label className="label" htmlFor="amount">Amount</label>
-            <input id="amount" inputMode="decimal" autoComplete="off" placeholder="0.00" className="input num" {...register("amount")} />
-            {errors.amount && <p className="mt-1 text-xs text-danger">{errors.amount.message}</p>}
-          </div>
-        </div>
-
-        {accounts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3">
+          ) : (
             <div>
-              <label className="label" htmlFor="accountId">{isMove ? "From account" : "Account"}</label>
-              <Select id="accountId" className="input" {...register("accountId")}>
-                <option value="">{isMove ? "Choose…" : "None"}</option>
-                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              <label className="label" htmlFor="type">Type</label>
+              <Select id="type" className="input" {...register("type")}>
+                {TX_TYPES.filter((t) => t !== "EXPENSE" && t !== "INCOME").map((t) => <option key={t} value={t}>{label(t)}</option>)}
+              </Select>
+              <button type="button" className="mt-1.5 block text-xs text-muted underline" onClick={() => setValue("type", "EXPENSE", { shouldDirty: true })}>Back to debit / credit</button>
+            </div>
+          )}
+
+          {/* The amount is the main thing, so it gets the most room. */}
+          <div className="rounded-2xl bg-surface-2 px-4 py-3 text-center">
+            <label className="label !mb-0 text-center" htmlFor="amount">Amount</label>
+            <div className="flex items-baseline justify-center gap-2">
+              <span className="text-base font-medium text-muted">{watch("currency")}</span>
+              <input
+                id="amount" inputMode="decimal" autoComplete="off" placeholder="0.00"
+                className="num keep-size w-40 min-w-0 bg-transparent py-1 text-center text-4xl font-semibold !outline-none placeholder:text-muted/50"
+                {...register("amount")}
+              />
+            </div>
+            {errors.amount && <p className="text-xs text-danger">{errors.amount.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <label className="label" htmlFor="category">Category</label>
+              <Select id="category" className="input" {...register("category")}>
+                {DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
               </Select>
             </div>
-            {isMove && (
-              <div>
-                <label className="label" htmlFor="toAccountId">{watch("type") === "CARD_PAYMENT" ? "Card paid" : "To account"}</label>
-                <Select id="toAccountId" className="input" {...register("toAccountId")}>
-                  <option value="">Choose…</option>
+            <div className="min-w-0">
+              <label className="label" htmlFor="date">Date</label>
+              <input id="date" type="date" className="input" {...register("date")} />
+              {errors.date && <p className="mt-1 text-xs text-danger">{errors.date.message}</p>}
+            </div>
+          </div>
+
+          {accounts.length > 0 && (
+            <div className={cn("grid gap-3", isMove && "grid-cols-2")}>
+              <div className="min-w-0">
+                <label className="label" htmlFor="accountId">{isMove ? "From account" : "Account"}</label>
+                <Select id="accountId" className="input" {...register("accountId")}>
+                  <option value="">{isMove ? "Choose…" : "None"}</option>
                   {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </Select>
-                {errors.toAccountId && <p className="mt-1 text-xs text-danger">{errors.toAccountId.message}</p>}
               </div>
-            )}
+              {isMove && (
+                <div className="min-w-0">
+                  <label className="label" htmlFor="toAccountId">{type === "CARD_PAYMENT" ? "Card paid" : "To account"}</label>
+                  <Select id="toAccountId" className="input" {...register("toAccountId")}>
+                    <option value="">Choose…</option>
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </Select>
+                  {errors.toAccountId && <p className="mt-1 text-xs text-danger">{errors.toAccountId.message}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="label" htmlFor="merchant">Merchant</label>
+            <input id="merchant" autoComplete="off" placeholder="e.g. Carrefour" className="input" {...register("merchant")} />
           </div>
-        )}
-        <div>
-          <label className="label" htmlFor="category">Category</label>
-          <Select id="category" className="input" {...register("category")}>
-            {DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </Select>
-        </div>
-        <div>
-          <label className="label" htmlFor="merchant">Merchant</label>
-          <input id="merchant" autoComplete="off" placeholder="e.g. Carrefour" className="input" {...register("merchant")} />
-        </div>
-        <div>
-          <label className="label" htmlFor="notes">Notes</label>
-          <input id="notes" autoComplete="off" className="input" {...register("notes")} />
+          <div>
+            <label className="label" htmlFor="notes">Notes <span className="font-normal">(optional)</span></label>
+            <input id="notes" autoComplete="off" className="input" {...register("notes")} />
+          </div>
+
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
         </div>
 
-        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <button className="btn-primary w-full" disabled={isSubmitting}>{isSubmitting ? "Saving…" : "Save"}</button>
+        {/* Save stays in view while the fields scroll. */}
+        <div className="flex gap-3 border-t border-border bg-surface px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <button type="button" onClick={onClose} className="btn-ghost min-h-12 px-5 text-base">Close</button>
+          <button className="btn-primary min-h-12 flex-1 text-base" disabled={isSubmitting}>{isSubmitting ? "Saving…" : "Save"}</button>
+        </div>
       </motion.form>
     </motion.div>
   );

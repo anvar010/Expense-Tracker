@@ -88,6 +88,7 @@ model User {
   recurring      RecurringTransaction[]
   notifications  Notification[]
   pushSubs       PushSubscription[]
+  walletKey      WalletKey?
   insights       AiInsight[]
   auditLogs      AuditLog[]
 
@@ -270,6 +271,19 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+/// The private key an iPhone Shortcut uses to send Apple Pay payments to the app. Only a hash is stored.
+model WalletKey {
+  id         String    @id @default(uuid()) @db.VarChar(36)
+  userId     String    @unique @map("user_id") @db.VarChar(36)
+  keyHash    String    @unique @map("key_hash") @db.VarChar(64)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallet_keys")
 }
 
 model AiInsight {

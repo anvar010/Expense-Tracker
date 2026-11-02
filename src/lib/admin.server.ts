@@ -76,7 +76,7 @@ export async function userOverview(id: string) {
     prisma.budget.count({ where: { userId: id } }),
     prisma.transaction.count({ where: { userId: id } }),
     prisma.transaction.groupBy({ by: ["categoryId", "currency"], where: { userId: id, type: "EXPENSE", date: { gte: since } }, _sum: { amount: true } }),
-    prisma.transaction.findMany({ where: { userId: id }, orderBy: { date: "desc" }, take: 10, include: { category: true, merchant: true } }),
+    prisma.transaction.findMany({ where: { userId: id }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 10, include: { category: true, merchant: true } }),
   ]);
   const names = new Map((await prisma.category.findMany({ where: { id: { in: cats.map((c) => c.categoryId).filter((x): x is string => !!x) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
   const topCategories = cats

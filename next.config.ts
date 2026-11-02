@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
         { key: "Service-Worker-Allowed", value: "/" },
       ] },
       // iOS opens this straight in the Shortcuts app when it is served with Apple's shortcut file type.
-      { source: "/Spendly%20Sync.shortcut", headers: [
+      { source: "/Spendly%20Apple%20Pay.shortcut", headers: [
         { key: "Content-Type", value: "application/vnd.apple.shortcut" },
         { key: "Cache-Control", value: "public, max-age=300" },
       ] },

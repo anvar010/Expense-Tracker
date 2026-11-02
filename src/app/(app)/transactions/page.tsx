@@ -9,6 +9,7 @@ import { amountClass, signed } from "@/components/tx-row";
 import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
+import { addedAt } from "@/components/tx-row";
 import { DEFAULT_CATEGORIES, TX_TYPES, type Account, type Tx } from "@/lib/types";
 import { Select } from "@/components/select";
 
@@ -27,6 +28,12 @@ export default function TransactionsPage() {
   const { items: accounts } = useCollection<Account>("accounts");
   useEffect(() => setAccount(new URLSearchParams(window.location.search).get("account") ?? ""), []);
   const [editing, setEditing] = useState<Tx | null>(null);
+  // Drawing thousands of rows at once makes the page slow to open, so show them a page at a time.
+  const [shown, setShown] = useState(50);
+
+  const filterKey = `${q}|${category}|${type}|${account}`;
+  const [shownFor, setShownFor] = useState(filterKey);
+  if (shownFor !== filterKey) { setShownFor(filterKey); setShown(50); }
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -73,14 +80,14 @@ export default function TransactionsPage() {
       ) : (
         <ul className="card divide-y divide-border overflow-hidden">
           <AnimatePresence initial={false}>
-          {rows.map((t) => (
+          {rows.slice(0, shown).map((t) => (
             <motion.li key={t.id} layout="position" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, x: -24, height: 0 }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }} className="flex items-center gap-2 p-3 transition-colors hover:bg-surface-2/50">
               <button onClick={() => setEditing(t)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{t.merchant || t.category}</span>
                   <span className="block truncate text-xs text-muted">
-                    {t.category} · {t.type.replace("_", " ").toLowerCase()} · {new Date(t.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    {t.category} · {t.type.replace("_", " ").toLowerCase()} · {new Date(t.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{addedAt(t)}
                   </span>
                 </span>
                 <span className={cn("num shrink-0 text-sm font-semibold", amountClass(t))}>{signed(t)}</span>
@@ -90,6 +97,9 @@ export default function TransactionsPage() {
           ))}
         </AnimatePresence>
         </ul>
+      )}
+      {rows.length > shown && (
+        <button className="btn-ghost w-full" onClick={() => setShown((n) => n + 100)}>Show more ({rows.length - shown} left)</button>
       )}
       <TxDialog open={!!editing} editing={editing} onClose={() => setEditing(null)} />
     </div>

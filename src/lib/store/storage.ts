@@ -24,9 +24,14 @@ export const KEYS = {
   guest: "et:guest:tx",
   cache: "et:cache:tx",
   outbox: "et:outbox",
+  idmap: "et:idmap", // temp id -> server id for entries created while offline
 } as const;
 
 export const newId = () => crypto.randomUUID();
 
 // Everything derived from a signed-in account; wiped on sign-out.
 export const COLLECTION_CACHE_KEYS = ["et:cache:accounts", "et:cache:budgets", "et:cache:recurring", "et:notifications:user", "et:alerted:user"];
+
+/** When each accounts/budgets/recurring list was last fetched. Cleared when a different person signs in. */
+export const collectionFetchedAt = new Map<string, number>();
+export const resetCollectionFreshness = () => collectionFetchedAt.clear();

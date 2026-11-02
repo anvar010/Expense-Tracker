@@ -25,9 +25,10 @@ export function Stagger({ children, className, delay = 0, ...rest }: HTMLMotionP
   );
 }
 
+/** Slides up only. It never fades, so the card behind it is not see-through while it arrives. */
 export function Item({ children, className, ...rest }: HTMLMotionProps<"div">) {
   return (
-    <motion.div className={className} variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: SPRING } }} {...rest}>
+    <motion.div className={className} variants={{ hidden: { y: 14 }, show: { y: 0, transition: SPRING } }} {...rest}>
       {children}
     </motion.div>
   );

@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useData } from "./data-provider";
-import { ls, newId } from "./storage";
+import { collectionFetchedAt as fetchedAt, ls, newId } from "./storage";
 
 const EVENT = "et:collection-changed";
+
+// Switching tabs within this window reuses what is already on screen instead of asking the server again.
+const FRESH_MS = 20_000;
 
 /**
  * Per-user list (accounts, budgets). Guests: localStorage. Signed in: API, with a cached read-only copy
@@ -12,23 +15,27 @@ const EVENT = "et:collection-changed";
  */
 export function useCollection<T extends { id: string }>(name: "accounts" | "budgets" | "recurring") {
   const { mode } = useData();
-  const [items, setItems] = useState<T[]>([]);
+  // Start from what this device already has, so a page opens filled in instead of empty while the network answers.
+  const cached = ls.read<T[] | null>(mode === "guest" ? `et:guest:${name}` : `et:cache:${name}`, null);
+  const [items, setItems] = useState<T[]>(cached ?? []);
   const [offline, setOffline] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(cached !== null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (mode === "loading") return;
     if (mode === "guest") {
       setItems(ls.read<T[]>(`et:guest:${name}`, []));
       setOffline(false);
       return setLoaded(true);
     }
+    if (!force && Date.now() - (fetchedAt.get(name) ?? 0) < FRESH_MS) return setLoaded(true);
     try {
       const res = await fetch(`/api/${name}`);
       if (!res.ok) throw new Error();
       const data = ((await res.json()) as { data: T[] }).data;
       setItems(data);
       ls.write(`et:cache:${name}`, data);
+      fetchedAt.set(name, Date.now());
       setOffline(false);
     } catch {
       setItems(ls.read<T[]>(`et:cache:${name}`, []));
@@ -39,7 +46,7 @@ export function useCollection<T extends { id: string }>(name: "accounts" | "budg
 
   useEffect(() => {
     void load();
-    const h = (e: Event) => (e as CustomEvent).detail === name && void load();
+    const h = (e: Event) => (e as CustomEvent).detail === name && void load(true);
     window.addEventListener(EVENT, h);
     return () => window.removeEventListener(EVENT, h);
   }, [load, name]);

@@ -101,16 +101,18 @@ function DashboardBody() {
         </Stagger>
       ) : (
         <Stagger className="space-y-4">
-          <Item className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#0a0a0b_0%,#2a060b_55%,#8f0a18_100%)] p-6 text-white shadow-[0_24px_60px_-28px_rgb(217_10_30/0.6)] sm:p-8">
+          <Item className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#0a0a0b_0%,#2a060b_55%,#8f0a18_100%)] p-6 text-white shadow-[0_18px_40px_-30px_rgb(0_0_0/0.45)] sm:p-8">
             <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-red-500/25 blur-3xl" />
             <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/4 size-64 rounded-full bg-white/10 blur-3xl" />
             <div className="relative flex flex-wrap items-center justify-between gap-6">
               <div className="min-w-0">
-                <p className="text-sm text-white/70">{savings < 0 ? "Overspent" : "Left after spending"}, {periodLabel}</p>
-                <p className={cn("num mt-2 text-4xl font-semibold tracking-tight sm:text-6xl", savings < 0 && "text-red-300")}>
-                  <AnimatedNumber value={savings} format={money} />
+                <p className="text-sm text-white/70">Spent, {periodLabel}</p>
+                <p className="num mt-2 text-4xl font-semibold tracking-tight sm:text-6xl">
+                  <AnimatedNumber value={current.expenses.toNumber()} format={money} />
                 </p>
-                <p className="num mt-3 text-sm text-white/70">Earned {fmt(current.income, currency)} · Spent {fmt(current.expenses, currency)}</p>
+                <p className="num mt-3 text-sm text-white/70">
+                  Earned {fmt(current.income, currency)} · {savings < 0 ? "Overspent" : "Left"} <span className={cn(savings < 0 && "text-red-300")}>{fmt(Math.abs(savings), currency)}</span>
+                </p>
                 {change !== null && (
                   <p className={cn("mt-2 inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs", change > 0 ? "bg-red-400/20 text-red-200" : "bg-emerald-400/20 text-emerald-200")}>
                     {change > 0 ? "↑" : "↓"} {Math.abs(change)}% vs last month
