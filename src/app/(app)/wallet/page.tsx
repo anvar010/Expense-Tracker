@@ -3,6 +3,7 @@
 import { Check, Copy, Download, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { AppleIcon } from "@/components/apple-icon";
 import { useData } from "@/lib/store/data-provider";
 
@@ -11,6 +12,7 @@ const NONE: Status = { exists: false, key: null, createdAt: null, lastUsedAt: nu
 
 export default function WalletPage() {
   const { mode } = useData();
+  const confirm = useConfirm();
   const [status, setStatus] = useState<Status | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -26,7 +28,7 @@ export default function WalletPage() {
   }, [mode]);
 
   async function create() {
-    if (status?.exists && !confirm("This replaces your current link. The shortcut on your iPhone stops saving until you paste the new one. Continue?")) return;
+    if (status?.exists && !(await confirm({ title: "Create a new link?", message: "This replaces your current link. The shortcut on your iPhone stops saving until you paste the new one.", confirmLabel: "Create new link", danger: false }))) return;
     setBusy(true); setError("");
     const r = await fetch("/api/wallet/key", { method: "POST" }).catch(() => null);
     const j = await r?.json().catch(() => null);
@@ -37,7 +39,7 @@ export default function WalletPage() {
   }
 
   async function revoke() {
-    if (!confirm("Turn off Apple Pay auto-save? The link stops working.")) return;
+    if (!(await confirm({ title: "Turn off Apple Pay auto-save?", message: "Your link stops working and payments are no longer saved.", confirmLabel: "Turn off" }))) return;
     await fetch("/api/wallet/key", { method: "DELETE" }).catch(() => {});
     await load();
   }

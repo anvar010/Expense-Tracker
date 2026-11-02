@@ -1,6 +1,6 @@
 /* Service worker. Caches the app shell and static assets only.
  * It NEVER caches /api/* or any non-GET request, so financial data is not stored in the HTTP cache. */
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `et-shell-${VERSION}`;
 const STATIC = `et-static-${VERSION}`;
 const PAGES = ["/dashboard", "/transactions", "/messages", "/accounts", "/budgets", "/login"];
@@ -75,12 +75,16 @@ self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch {}
   event.waitUntil(
-    self.registration.showNotification(data.title || "New transaction", {
-      body: data.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url: data.url || "/transactions" },
-    }),
+    (async () => {
+      await self.registration.showNotification(data.title || "New transaction", {
+        body: data.body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { url: data.url || "/transactions" },
+      });
+      // An open app should show the new entry right away.
+      for (const c of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) c.postMessage({ type: "flush" });
+    })(),
   );
 });
 

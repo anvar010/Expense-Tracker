@@ -80,6 +80,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const flushing = useRef(false);
   // Always the latest list, so several quick changes build on each other instead of on a stale render.
   const txsRef = useRef<Tx[]>([]);
+  // Counts local changes, so a server refresh that started before one of them can be thrown away instead of undoing it.
+  const epoch = useRef(0);
 
   const setAll = useCallback((next: Tx[]) => {
     txsRef.current = next;
@@ -87,6 +89,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const commit = useCallback((next: Tx[], persistTo: string) => {
+    epoch.current++;
     setAll(next);
     ls.write(persistTo, next);
   }, [setAll]);
@@ -159,8 +162,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const loadRemote = useCallback(async () => {
     await flush();
+    const started = epoch.current;
     try {
       const list = await api<Tx[]>("/api/transactions");
+      if (epoch.current !== started) return; // something changed here while this was loading; the next refresh catches up
       // Keep unsynced local creates visible until they reach the server.
       const outbox = readOutbox();
       if (outbox.length) {
@@ -169,7 +174,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSync("offline");
         return;
       }
-      commit(list, KEYS.cache);
+      commit([...list].sort(newestFirst), KEYS.cache);
       setSync("synced");
     } catch (e) {
       if (e instanceof Unreachable) {
@@ -209,8 +214,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const onSw = (e: MessageEvent) => e.data?.type === "flush" && retry();
     window.addEventListener("online", retry);
     navigator.serviceWorker?.addEventListener("message", onSw);
-    const t = setInterval(() => sync === "offline" && retry(), 30000);
-    return () => { window.removeEventListener("online", retry); navigator.serviceWorker?.removeEventListener("message", onSw); clearInterval(t); };
+    // Entries can also arrive from outside the app (Apple Pay, another device), so look again when the app comes
+    // back into view and every minute while it is open. While offline, keep retrying more often.
+    const onVisible = () => document.visibilityState === "visible" && retry();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", retry);
+    const t = setInterval(() => (sync === "offline" || document.visibilityState === "visible") && retry(), sync === "offline" ? 30000 : 60000);
+    return () => {
+      window.removeEventListener("online", retry); window.removeEventListener("focus", retry);
+      document.removeEventListener("visibilitychange", onVisible);
+      navigator.serviceWorker?.removeEventListener("message", onSw); clearInterval(t);
+    };
   }, [mode, sync, loadRemote]);
 
   const queue = (...bodies: OpBody[]) => {

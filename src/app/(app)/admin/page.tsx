@@ -3,6 +3,7 @@
 import { KeyRound, Plus, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { Select } from "@/components/select";
 import { ROLE_LABEL, type AdminUser } from "@/lib/admin-types";
 import { fmt } from "@/lib/analytics";
@@ -19,6 +20,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
 
 export default function AdminPage() {
   const { session } = useData();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState<AdminUser | "new" | null>(null);
@@ -83,8 +85,8 @@ export default function AdminPage() {
                       <button className="btn-ghost !min-h-9" onClick={() => act(() => call(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))}>
                         {u.active ? <><UserX size={15} /> Disable</> : <><UserCheck size={15} /> Enable</>}
                       </button>
-                      <button aria-label={`Delete ${u.name}`} className="btn-ghost !min-h-9 text-danger" onClick={() => {
-                        if (confirm(`Delete ${u.name} and all of their data? This can't be undone.`)) void act(() => call(`/api/admin/users/${u.id}`, { method: "DELETE" }));
+                      <button aria-label={`Delete ${u.name}`} className="btn-ghost !min-h-9 text-danger" onClick={async () => {
+                        if (await confirm({ title: `Delete ${u.name}?`, message: "Their account and all of their data are removed for good. This can't be undone." })) void act(() => call(`/api/admin/users/${u.id}`, { method: "DELETE" }));
                       }}><Trash2 size={15} /></button>
                     </>
                   )}

@@ -9,7 +9,8 @@ import { amountClass, signed } from "@/components/tx-row";
 import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
-import { addedAt } from "@/components/tx-row";
+import { useConfirm } from "@/components/confirm";
+import { addedAt, TxTitle } from "@/components/tx-row";
 import { DEFAULT_CATEGORIES, TX_TYPES, type Account, type Tx } from "@/lib/types";
 import { Select } from "@/components/select";
 
@@ -50,7 +51,10 @@ export default function TransactionsPage() {
     URL.revokeObjectURL(url);
   }
 
-  const del = (t: Tx) => confirm(`Delete this ${t.merchant || t.category} transaction?`) && remove(t.id);
+  const confirm = useConfirm();
+  const del = async (t: Tx) => {
+    if (await confirm({ title: "Delete this transaction?", message: `${t.merchant || t.category} · ${signed(t)}` })) await remove(t.id);
+  };
 
   if (mode === "loading") return <p className="text-sm text-muted">Loading…</p>;
 
@@ -85,7 +89,7 @@ export default function TransactionsPage() {
               transition={{ type: "spring", stiffness: 320, damping: 32 }} className="flex items-center gap-2 p-3 transition-colors hover:bg-surface-2/50">
               <button onClick={() => setEditing(t)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{t.merchant || t.category}</span>
+                  <TxTitle t={t} />
                   <span className="block truncate text-xs text-muted">
                     {t.category} · {t.type.replace("_", " ").toLowerCase()} · {new Date(t.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{addedAt(t)}
                   </span>

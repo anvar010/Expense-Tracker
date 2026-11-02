@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { AppleIcon } from "./apple-icon";
 import { BudgetAlerts } from "./budget-alerts";
+import { ConfirmProvider } from "./confirm";
 import { Dock, type DockItem } from "./dock";
 import { NotificationBell } from "./notification-bell";
 import { ProfileMenu } from "./profile-menu";
@@ -58,6 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
+    <ConfirmProvider>
     <div className="min-h-dvh pb-36">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-8">
@@ -97,5 +99,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <BudgetAlerts />
       <TxDialog open={adding} onClose={() => setAdding(false)} />
     </div>
+    </ConfirmProvider>
   );
 }

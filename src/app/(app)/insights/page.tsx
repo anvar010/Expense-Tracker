@@ -12,6 +12,7 @@ import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import type { Recurring } from "@/lib/types";
+import { useConfirm } from "@/components/confirm";
 import { Select } from "@/components/select";
 
 const TONE = {
@@ -50,6 +51,8 @@ export default function InsightsPage() {
   const active = rec.items.filter((r) => r.currency === currency);
   const upcoming = active.filter((r) => r.status === "ACTIVE").map((r) => ({ r, due: nextOccurrence(r.nextDueDate, r.frequency) })).sort((a, b) => +a.due - +b.due);
   const forecast = upcoming.reduce((s, { r }) => s.plus(monthlyCost(r.amount, r.frequency)), new Decimal(0));
+
+  const confirm = useConfirm();
 
   async function guarded(fn: () => Promise<unknown>) {
     setError("");
@@ -152,7 +155,7 @@ export default function InsightsPage() {
                       <span className="block text-xs text-muted">{r.status === "PAUSED" ? "Paused" : `Next ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} (${days <= 0 ? "today" : `in ${days} day${days > 1 ? "s" : ""}`})`}</span></span>
                     <span className="flex gap-1">
                       <button aria-label={r.status === "PAUSED" ? "Resume" : "Pause"} className="btn-ghost size-9 !min-h-9 !p-0" disabled={rec.offline} onClick={() => guarded(() => rec.update(r.id, { ...r, status: r.status === "PAUSED" ? "ACTIVE" : "PAUSED" }))}>{r.status === "PAUSED" ? <Play size={15} /> : <Pause size={15} />}</button>
-                      <button aria-label="Remove" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={rec.offline} onClick={() => guarded(() => rec.remove(r.id))}><Trash2 size={15} /></button>
+                      <button aria-label="Remove" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={rec.offline} onClick={async () => { if (await confirm({ title: `Stop tracking ${r.name}?`, message: "It is removed from your recurring payments." , confirmLabel: "Remove" })) await guarded(() => rec.remove(r.id)); }}><Trash2 size={15} /></button>
                     </span>
                   </li>
                 );

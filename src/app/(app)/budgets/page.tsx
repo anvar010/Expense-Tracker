@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { BUDGET_PERIODS, CURRENCIES, DEFAULT_CATEGORIES, budgetInputSchema, type Budget, type BudgetInput } from "@/lib/types";
+import { useConfirm } from "@/components/confirm";
 import { Select } from "@/components/select";
 
 const blank: BudgetInput = { category: "", amount: "", currency: "AED", period: "MONTHLY" };
@@ -51,6 +52,7 @@ function BudgetForm({ initial, onSave, onCancel }: { initial?: Budget; onSave: (
 
 export default function BudgetsPage() {
   const { txs, mode } = useData();
+  const confirm = useConfirm();
   const { items, offline, loaded, create, update, remove } = useCollection<Budget>("budgets");
   const [editing, setEditing] = useState<Budget | "new" | null>(null);
   const [histId, setHistId] = useState("");
@@ -91,7 +93,7 @@ export default function BudgetsPage() {
                 </div>
                 <div className="flex gap-1">
                   <button aria-label="Edit budget" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(b)} disabled={offline}><Pencil size={15} /></button>
-                  <button aria-label="Delete budget" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={offline} onClick={() => confirm("Delete this budget?") && remove(b.id)}><Trash2 size={15} /></button>
+                  <button aria-label="Delete budget" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={offline} onClick={async () => { if (await confirm({ title: "Delete this budget?", message: "Your transactions are not affected." })) await remove(b.id); }}><Trash2 size={15} /></button>
                 </div>
               </div>
               <ProgressBar pct={p.pct} className={cn("h-full rounded-full", BAR[p.status])} />

@@ -9,6 +9,11 @@ describe("newestFirst", () => {
     const list = [tx("a", day, "2026-11-02T06:00:00Z"), tx("old", "2026-11-01T08:00:00.000Z", "2026-11-02T09:00:00Z"), tx("c", day, "2026-11-02T10:30:00Z"), tx("b", day, "2026-11-02T07:00:00Z")];
     expect([...list].sort(newestFirst).map((t) => t.id)).toEqual(["c", "b", "a", "old"]);
   });
+  it("puts an entry that carries its real time of day by when it was added, not under the noon-dated ones", () => {
+    const typed = tx("typed", "2026-11-02T08:00:00.000Z", "2026-11-02T05:50:00Z"); // noon in Dubai
+    const wallet = tx("wallet", "2026-11-02T06:57:50.150Z", "2026-11-02T06:57:50Z"); // paid at 10:57 in Dubai
+    expect([typed, wallet].sort(newestFirst).map((t) => t.id)).toEqual(["wallet", "typed"]);
+  });
   it("keeps entries without a timestamp after dated ones on the same day", () => {
     const day = "2026-11-02T08:00:00.000Z";
     expect([tx("x", day), tx("y", day, "2026-11-02T06:00:00Z")].sort(newestFirst).map((t) => t.id)).toEqual(["y", "x"]);

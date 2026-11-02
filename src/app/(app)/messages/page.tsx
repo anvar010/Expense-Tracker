@@ -11,6 +11,7 @@ import { newId } from "@/lib/store/storage";
 import { useCollection } from "@/lib/store/use-collection";
 import { useLocalList } from "@/lib/store/use-local-list";
 import { CURRENCIES, DEFAULT_CATEGORIES, TX_TYPES, type Account } from "@/lib/types";
+import { useConfirm } from "@/components/confirm";
 import { Select } from "@/components/select";
 
 type Queued = { id: string; text: string; reason: string; addedAt: string };
@@ -26,6 +27,7 @@ const SAMPLES = [
 const redact = (s: string) => s.replace(/\b\d{8,}\b/g, "••••");
 
 export default function MessagesPage() {
+  const confirm = useConfirm();
   const { txs, add, mode } = useData();
   const { items: accounts } = useCollection<Account>("accounts");
   const [rules, setRules] = useLocalList<CategoryRule>("et:rules");
@@ -171,7 +173,7 @@ export default function MessagesPage() {
                   <span className="block truncate text-sm">{q.text}</span>
                   <span className="text-xs text-muted">{q.reason} · tap to review</span>
                 </button>
-                <button aria-label="Discard" className="btn-ghost size-10 shrink-0 !p-0 text-muted hover:text-danger" onClick={() => setQueue((x) => x.filter((i) => i.id !== q.id))}><Trash2 size={16} /></button>
+                <button aria-label="Discard" className="btn-ghost size-10 shrink-0 !p-0 text-muted hover:text-danger" onClick={async () => { if (await confirm({ title: "Discard this message?", message: "It is removed from the review queue." , confirmLabel: "Discard" })) setQueue((x) => x.filter((i) => i.id !== q.id)); }}><Trash2 size={16} /></button>
               </li>
             ))}
           </ul>
@@ -185,7 +187,7 @@ export default function MessagesPage() {
             {rules.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                 <span><b className="font-medium">{r.pattern}</b> → {r.category}</span>
-                <button aria-label="Remove rule" className="btn-ghost size-10 !p-0 text-muted hover:text-danger" onClick={() => setRules((x) => x.filter((i) => i.id !== r.id))}><Trash2 size={16} /></button>
+                <button aria-label="Remove rule" className="btn-ghost size-10 !p-0 text-muted hover:text-danger" onClick={async () => { if (await confirm({ title: "Remove this rule?", message: `New messages from ${r.pattern} will be categorised from scratch.`, confirmLabel: "Remove" })) setRules((x) => x.filter((i) => i.id !== r.id)); }}><Trash2 size={16} /></button>
               </li>
             ))}
           </ul>

@@ -193,3 +193,20 @@ test("mobile layout: bottom nav and floating add button", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
 });
+
+test("deleting asks first in an in-app modal, and Cancel keeps the entry", async ({ page }) => {
+  await page.goto("/dashboard");
+  await addTx(page, "9.50", "Delete Me");
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Delete transaction" }).first().click();
+  const modal = page.getByRole("alertdialog");
+  await expect(modal).toContainText("Delete this transaction?");
+  await expect(modal).toContainText("Delete Me");
+  await modal.getByRole("button", { name: "Cancel" }).click();
+  await expect(modal).toBeHidden();
+  await expect(page.getByText("Delete Me")).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete transaction" }).first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Delete Me")).toBeHidden();
+});

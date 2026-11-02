@@ -58,3 +58,17 @@ test("offline entries are queued and sent in the order they were added once the 
   await expect(page.getByText(/waiting to sync/)).toBeHidden();
   await expect(page.getByText("Tester").first()).toBeVisible();
 });
+
+test("entries added from outside (Apple Pay, another device) show up when the app is looked at again", async ({ page }) => {
+  let serverList: unknown[] = [];
+  await page.route("**/api/**", (route) => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.route("**/api/auth/me", (route) => route.fulfill({ json: { ok: true, data: { id: "u1", name: "Tester", email: "t@t.co", role: "USER" } } }));
+  await page.route("**/api/transactions", (route) => route.fulfill({ json: { ok: true, data: serverList } }));
+  await page.goto("/transactions");
+  await expect(page.getByText("Tester").first()).toBeVisible();
+  await expect(page.getByText("No transactions yet")).toBeVisible();
+
+  serverList = [{ id: "ext1", amount: "1.00", currency: "AED", type: "EXPENSE", category: "Other", merchant: "Apple Pay Cafe", date: new Date().toISOString(), notes: "Apple Pay", source: "SHORTCUT", createdAt: new Date().toISOString() }];
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(page.getByText("Apple Pay Cafe")).toBeVisible();
+});

@@ -51,6 +51,12 @@ export async function userForWalletKey(key: string) {
   return k.userId;
 }
 
+/** Today's date in Dubai at 12:00, the same way a typed entry stores its date, so same-day entries sort by when they were added. */
+function todayAtNoon() {
+  const dubai = new Date(Date.now() + 4 * 3600_000);
+  return new Date(Date.UTC(dubai.getUTCFullYear(), dubai.getUTCMonth(), dubai.getUTCDate(), 8));
+}
+
 /** Saves one Apple Pay payment as a debit. Returns null when it looks like the same payment sent twice. */
 export async function saveWalletPayment(userId: string, p: WalletPayload) {
   const recent = await prisma.transaction.findFirst({
@@ -66,6 +72,6 @@ export async function saveWalletPayment(userId: string, p: WalletPayload) {
   return createTransaction(userId, {
     amount: p.amount, currency: p.currency, type: "EXPENSE", merchant: p.merchant,
     category: guess.source === "none" ? "Other" : guess.category,
-    date: new Date().toISOString(), notes: p.card ? `Apple Pay · ${p.card}` : "Apple Pay", source: "SHORTCUT",
+    date: todayAtNoon().toISOString(), notes: p.card ? `Apple Pay · ${p.card}` : "Apple Pay", source: "SHORTCUT",
   });
 }

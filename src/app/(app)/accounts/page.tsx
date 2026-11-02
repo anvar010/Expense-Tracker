@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { useData } from "@/lib/store/data-provider";
 import { useCollection } from "@/lib/store/use-collection";
 import { ACCOUNT_TYPES, CURRENCIES, accountInputSchema, type Account, type AccountInput } from "@/lib/types";
+import { useConfirm } from "@/components/confirm";
 import { Select } from "@/components/select";
 
 const typeLabel = (t: string) => t.replace("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
@@ -61,6 +62,7 @@ function AccountForm({ initial, onSave, onCancel }: { initial?: Account; onSave:
 
 export default function AccountsPage() {
   const { txs, add, mode } = useData();
+  const confirm = useConfirm();
   const { items, offline, loaded, create, update, remove } = useCollection<Account>("accounts");
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [reconciling, setReconciling] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export default function AccountsPage() {
                   <div className="flex shrink-0 gap-1">
                     <button aria-label="Edit account" className="btn-ghost size-9 !min-h-9 !p-0" onClick={() => setEditing(a)} disabled={offline}><Pencil size={15} /></button>
                     <button aria-label="Delete account" className="btn-ghost size-9 !min-h-9 !p-0 hover:text-danger" disabled={offline}
-                      onClick={() => confirm(`Delete ${a.name}? Its transactions are kept but unlinked.`) && remove(a.id)}><Trash2 size={15} /></button>
+                      onClick={async () => { if (await confirm({ title: `Delete ${a.name}?`, message: "Its transactions are kept but no longer linked to this account." })) await remove(a.id); }}><Trash2 size={15} /></button>
                   </div>
                 </div>
                 <div>

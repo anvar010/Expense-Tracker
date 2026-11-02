@@ -1,6 +1,18 @@
 import { cn } from "@/lib/cn";
+import { AppleIcon } from "./apple-icon";
 import { fmt } from "@/lib/analytics";
 import type { Tx } from "@/lib/types";
+
+/** The row title with a small Apple logo for payments that arrived straight from Apple Pay. */
+export function TxTitle({ t }: { t: Tx }) {
+  const apple = t.source === "SHORTCUT";
+  return (
+    <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+      {apple && <span title="Added from Apple Pay" className="inline-flex shrink-0 items-center"><AppleIcon size={13} /><span className="sr-only">Apple Pay</span></span>}
+      <span className="truncate">{t.merchant || (apple ? "Apple Pay" : t.category)}</span>
+    </span>
+  );
+}
 
 /** "· added 3:45 pm", or nothing for entries that predate the timestamp. */
 export const addedAt = (t: Tx) =>
@@ -17,7 +29,7 @@ export function TxItem({ t, onClick }: { t: Tx; onClick?: () => void }) {
     <li>
       <button onClick={onClick} className="flex w-full items-center justify-between gap-3 px-1 py-3 text-left transition hover:bg-surface-2/60 rounded-xl">
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{t.merchant || t.category}</span>
+          <TxTitle t={t} />
           <span className="block truncate text-xs text-muted">{t.category} · {new Date(t.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}{addedAt(t)}</span>
         </span>
         <span className={cn("num shrink-0 text-sm font-semibold", amountClass(t))}>{signed(t)}</span>
